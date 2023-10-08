@@ -89,6 +89,8 @@ class MainWindow(QMainWindow):
         self.traverseComboBox.addItem("Top to Botton")
         self.traverseComboBox.addItem("Bottom to Top")
         self.traverseComboBox.addItem("Radial")
+        self.traverseComboBox.addItem("Circular")
+
 
         # self.drawerLayout.addWidget(QLabel("Drawer"))
         self.drawer.setLayout(self.drawerLayout)
@@ -198,23 +200,23 @@ class MainWindow(QMainWindow):
 
     def Hue2freq(self, h,scale_freqs):
         thresholds = [26 , 52 , 78 , 104,  128 , 154 , 180]
-        note = scale_freqs[0]
+        note = scale_freqs['C4']
         if (h <= thresholds[0]):
-            note = scale_freqs[0]
+            note = scale_freqs['B3']
         elif (h > thresholds[0]) & (h <= thresholds[1]):
-            note = scale_freqs[1]
+            note = scale_freqs['a3']
         elif (h > thresholds[1]) & (h <= thresholds[2]):
-            note = scale_freqs[2]
+            note = scale_freqs['G3']
         elif (h > thresholds[2]) & (h <= thresholds[3]):
-            note = scale_freqs[3]
+            note = scale_freqs['f3']
         elif (h > thresholds[3]) & (h <= thresholds[4]):    
-            note = scale_freqs[4]
+            note = scale_freqs['E2']
         elif (h > thresholds[4]) & (h <= thresholds[5]):
-            note = scale_freqs[5]
+            note = scale_freqs['d2']
         elif (h > thresholds[5]) & (h <= thresholds[6]):
-            note = scale_freqs[6]
+            note = scale_freqs['F3']
         else:
-            note = scale_freqs[0]
+            note = scale_freqs['C1']
         return note
 
     # Initialisation function for the GUI
@@ -409,12 +411,13 @@ class MainWindow(QMainWindow):
 
         self.img_height, self.img_width, self.img_nlayers = self.imghsv.shape
         self.hues = []
-        self.MapHorizontal_LR(5, 5)
+        self.Traverse_Horizontal_LR(5, 5)
 
         self.hues = pd.DataFrame(self.hues, columns= ["hues"])
 
         #Define frequencies that make up A-Harmonic Minor Scale
-        scale_freqs = [220.00, 246.94 ,261.63, 293.66, 329.63, 349.23, 415.30] 
+
+        scale_freqs = self.Get_piano_notes()
         self.hues['notes'] = self.hues.apply(lambda row : self.Hue2freq(row['hues'],scale_freqs), axis = 1)
 
         self.frequencies = self.hues['notes'].to_numpy()
@@ -424,29 +427,29 @@ class MainWindow(QMainWindow):
         self.T = 0.1
         self.t = np.linspace(0, self.T, int(self.T * self.SAMPLE_RATE), endpoint = False)
 
-        amp = 0.5
-        
-        self.npixels = len(self.frequencies)
+        amp = 100
+    
+        for i in range(len(self.frequencies)):
+            val = self.frequencies[i]
+            fundamental_note = np.sin(2 * np.pi * val * self.t)
+
+            #create harmonics as well as apply ADSR envelope
+            harmonic_frequencies = [amp*fundamental_note,
+                                    2 * fundamental_note*(amp/2),
+                                    3 * fundamental_note*(amp/3),
+                                    4 * fundamental_note*(amp/4),
+                                    5 * fundamental_note*(amp/5)]
+
+            piano_waveform = np.zeros_like(fundamental_note)
+            # Add harmonics to the sine wave
+            for harmonics in harmonic_frequencies:
+                piano_waveform += harmonics
+            # Normalize the waveform
+            piano_waveform /= np.max(np.abs(piano_waveform))
+            # Append the waveforms
+            self.song = np.concatenate([self.song, piano_waveform])
 
         self.statusbar.addPermanentWidget(self.progressbar_sonify)
-
-        # for i in range(self.npixels):
-        #     self.progressbar_sonify.setValue(int(i / self.npixels * 100))
-        #     note = amp * np.sin(2 * np.pi * self.frequencies[i] * self.t)
-        #     self.song = np.concatenate([self.song, note])
-
-        octaves = np.array([0.5, 1, 2, 3, 4, 5, 6, 7, 8])
-
-        for i in range(self.npixels):
-            self.progressbar_sonify.setValue(int(i / self.npixels * 100))
-            octave = rand.choice(octaves)
-            note = amp * np.sin(2 * np.pi * octave * self.frequencies[i] * self.t)
-            self.song = np.concatenate([self.song, note])
-
-
-        duration = int(len(self.song) / self.SAMPLE_RATE)
-
-        self.statusbar.removeWidget(self.progressbar_sonify)
 
         self.playButton.setEnabled(True)
 
