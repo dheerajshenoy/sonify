@@ -104,13 +104,12 @@ class MainWindow(QMainWindow):
         self.traverseComboBox.addItem("Radial")
         self.traverseComboBox.setItemIcon(4, QIcon(":/icons/radial.png"))
 
-<<<<<<< HEAD
         self.traverseComboBox.addItem("Circular")
         self.traverseComboBox.setItemIcon(5, QIcon(":/icons/circular.png"))
 
         self.traverseComboBox.model().item(4).setEnabled(False)
         self.traverseComboBox.model().item(5).setEnabled(False)
-=======
+
         # Skip Combo Box H and W
         self.skipLayout = QHBoxLayout()
         self.skipLabel = QLabel("Skip")
@@ -126,7 +125,6 @@ class MainWindow(QMainWindow):
         self.skipLayout.addWidget(self.skipHBox)
         self.skipLayout.addWidget(self.skipWLabel)
         self.skipLayout.addWidget(self.skipWBox)
->>>>>>> testing
 
         # self.drawerLayout.addWidget(QLabel("Drawer"))
         self.drawer.setLayout(self.drawerLayout)
