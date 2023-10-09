@@ -85,9 +85,17 @@ class MainWindow(QMainWindow):
         self.traverseComboBox = QComboBox()
 
         self.traverseComboBox.addItem("Left to Right")
+        self.traverseComboBox.setItemIcon(0, QIcon(":/icons/left_to_right.png"))
+
         self.traverseComboBox.addItem("Right to Left")
+        self.traverseComboBox.setItemIcon(1, QIcon(":/icons/right_to_left.png"))
+
         self.traverseComboBox.addItem("Top to Botton")
+        self.traverseComboBox.setItemIcon(2, QIcon(":/icons/top_to_bottom.png"))
+
         self.traverseComboBox.addItem("Bottom to Top")
+        self.traverseComboBox.setItemIcon(3, QIcon(":/icons/bottom_to_top.png"))
+
         self.traverseComboBox.addItem("Radial")
         self.traverseComboBox.addItem("Circular")
 
@@ -200,23 +208,23 @@ class MainWindow(QMainWindow):
 
     def Hue2freq(self, h,scale_freqs):
         thresholds = [26 , 52 , 78 , 104,  128 , 154 , 180]
-        note = scale_freqs['C4']
+        note = scale_freqs['B4']
         if (h <= thresholds[0]):
-            note = scale_freqs['B3']
+            note = scale_freqs['A4']
         elif (h > thresholds[0]) & (h <= thresholds[1]):
-            note = scale_freqs['a3']
+            note = scale_freqs['G4']
         elif (h > thresholds[1]) & (h <= thresholds[2]):
-            note = scale_freqs['G3']
+            note = scale_freqs['F4']
         elif (h > thresholds[2]) & (h <= thresholds[3]):
-            note = scale_freqs['f3']
+            note = scale_freqs['E4']
         elif (h > thresholds[3]) & (h <= thresholds[4]):    
-            note = scale_freqs['E2']
+            note = scale_freqs['B4']
         elif (h > thresholds[4]) & (h <= thresholds[5]):
-            note = scale_freqs['d2']
+            note = scale_freqs['A4']
         elif (h > thresholds[5]) & (h <= thresholds[6]):
-            note = scale_freqs['F3']
+            note = scale_freqs['G4']
         else:
-            note = scale_freqs['C1']
+            note = scale_freqs['F4']
         return note
 
     # Initialisation function for the GUI
@@ -238,7 +246,7 @@ class MainWindow(QMainWindow):
         self.figure, self.ax = plt.subplots(2, 1, figsize = (16, 9), gridspec_kw={'height_ratios': [5, 1]})
         self.canvas = FigureCanvasQTAgg(self.figure)
 
-        # self.ax[0].set_axis_off()
+        self.ax[0].set_axis_off()
         self.ax[1].set_axis_off()
 
     # Initialisation function for the menubar
@@ -314,11 +322,9 @@ class MainWindow(QMainWindow):
         self.toolbar_download.triggered.connect(self.Download)
         self.toolbar_download.setDisabled(True)
 
-
         self.toolbar.addAction(self.toolbar_open)
         self.toolbar.addAction(self.toolbar_selection)
         self.toolbar.addAction(self.toolbar_download)
-
 
     # Initialisation function for the statusbar
     def InitStatusBar(self):
@@ -366,16 +372,15 @@ class MainWindow(QMainWindow):
         self.worker = PlayAudio(self.song, self.SAMPLE_RATE)
         self.worker.start()
 
-        # self.MoveHorizLine()
-            
-
-        # duration = int(len(self.song) / self.SAMPLE_RATE)
-        # refreshPeriod = 100
-        # f = np.arange(0, self.img_width, 5)
-        # ani = FuncAnimation(self.figure, self.animateHorizLine, frames = f,
-        #                     interval = 1/duration * self.img_width * self.T, blit = True, repeat = False)
-        # # ani = FuncAnimation(self.figure, self.animateSinWave, init_func= self.INIT, frames = self.t, interval = 50, blit = True)
-        # self.UpdateCanvas()
+        self.MoveHorizLine()
+          
+        duration = int(len(self.song) / self.SAMPLE_RATE)
+        refreshPeriod = 100
+        f = np.arange(0, self.img_width, 5)
+        ani = FuncAnimation(self.figure, self.animateHorizLine, frames = f,
+                            interval = 1/duration * self.img_width * self.T, blit = True, repeat = False)
+        # ani = FuncAnimation(self.figure, self.animateSinWave, init_func= self.INIT, frames = self.t, interval = 50, blit = True)
+        self.UpdateCanvas()
 
     def INIT(self):
         self.wave, = self.ax[1].plot([], [], '.b', lw = 2)
@@ -435,10 +440,10 @@ class MainWindow(QMainWindow):
 
             #create harmonics as well as apply ADSR envelope
             harmonic_frequencies = [amp*fundamental_note,
-                                    2 * fundamental_note*(amp/2),
-                                    3 * fundamental_note*(amp/3),
-                                    4 * fundamental_note*(amp/4),
-                                    5 * fundamental_note*(amp/5)]
+                                    6 * fundamental_note*(amp/2),
+                                    8 * fundamental_note*(amp/3),
+                                    10 * fundamental_note*(amp/4),
+                                    12 * fundamental_note*(amp/5)]
 
             piano_waveform = np.zeros_like(fundamental_note)
             # Add harmonics to the sine wave
@@ -457,45 +462,51 @@ class MainWindow(QMainWindow):
     def Msg(self, msg = None, t = 1):
         self.statusbar.showMessage(msg, t * 1000)
     
-    # TODO: Overlay line on the image while playing audio
-    # def MoveHorizLine(self):
-    #     self.vl = self.ax[0].axvline(0, ls = '-', color = 'r', lw = 1, zorder = 10)
-    #     self.UpdateCanvas()
-    #
-    # def animateHorizLine(self, i):
-    #     self.vl.set_xdata([i, i])
-    #     return self.vl,
+    #TODO: Overlay line on the image while playing audio
+    def MoveHorizLine(self):
+        self.vl = self.ax[0].axvline(0, ls = '-', color = 'r', lw = 1, zorder = 10)
+        self.UpdateCanvas()
+
+    def animateHorizLine(self, i):
+        self.vl.set_xdata([i, i])
+        return self.vl,
 
     # TODO: Overlay sin wave on the image while playing audio
-    # def animateSinWave(self, vl, i):
-    #     self.wave.set_data(self.t, y)
-    #     return self.wave,
+    def animateSinWave(self, vl, i):
+        self.wave.set_data(self.t, y)
+        return self.wave,
 
-    # IMAGE MAPPINGS:
+    # IMAGE TRAVERSING:
 
-    # Horizontal Left to Right Mapping
+    # Horizontal Left to Right Traversal
     def Traverse_Horizontal_LR(self, skipw, skiph):
         for j in range(0, self.img_width, skipw):
             for i in range(0, self.img_height, skiph):
                 hue = self.imghsv[i][j][0]
                 self.hues.append(hue)
-
+    
+    # Horizontal Right to Left Traversal
     def Traverse_Horizontal_RL(self, skipw, skiph):
         for j in range(self.img_width, 0, -skipw):
             for i in range(0, self.img_height, skiph):
                 hue = self.imghsv[i][j][0]
                 self.hues.append(hue)
 
+    # Vertical Bottom to Top Traversal
     def Traverse_Vertical_BT(self, skipw, skiph):
-        pass
-
+        for j in range(self.img_width, 0, -skipw):
+            for i in range(0, self.img_height, skiph):
+                hue = self.imghsv[i][j][0]
+                self.hues.append(hue)
+    
+    # Vertical Top to Bottom Traversal
     def Traverse_Vertical_TB(self, skipw, skiph):
         pass
-
-    def Traverse_Stack_BU(self, skipw, skiph):
+    
+    def Traverse_Radial(self, skipR, skipT):
         pass
 
-    def Traverse_Stack_TD(self, skipw, skiph):
+    def Traverse_Circular(self, skipw, skiph):
         pass
 
     # Piano notes function
@@ -522,7 +533,7 @@ class MainWindow(QMainWindow):
         note_freqs = self.Get_piano_notes()
         scale_intervals = ['A','a','B','C','c','D','d','E','F','f','G','g']
         
-        key = 'a'
+        key = 'G'
         #Find index of desired key
         index = scale_intervals.index(key)
 
@@ -602,7 +613,7 @@ class MainWindow(QMainWindow):
                 self.Traverse_Vertical_BT(5, 5)
 
         self.hues = pd.DataFrame(self.hues, columns= ["hues"])
-        self.hues['notes'] = self.hues.apply(lambda row : self.Hue2freq(row['hues'], freqs), axis = 1)
+        self.hues['notes'] = self.hues.apply(lambda row : self.Hue2freq(row['hues'], note_freqs), axis = 1)
 
         self.frequencies = self.hues['notes'].to_numpy()
 
@@ -621,13 +632,31 @@ class MainWindow(QMainWindow):
         self.progressbar_sonify = QProgressBar()
         self.statusbar.addPermanentWidget(self.progressbar_sonify)
 
+        amp = 100
+
         octaves = np.array([0.5, 1, 2, 3, 4, 5])
 
         for i in range(nPixels):
             self.progressbar_sonify.setValue(int(i / nPixels * 100))
-            octave = rand.choice(octaves)
-            note = 0.5 * np.sin(2 * np.pi * octave * self.frequencies[i] * self.t)
-            self.song = np.concatenate([self.song, note])
+
+            val = self.frequencies[i]
+            fundamental_note = np.sin(2 * np.pi * val * self.t)
+
+            #create harmonics as well as apply ADSR envelope
+            harmonic_frequencies = [amp*fundamental_note,
+                                    2 * fundamental_note*(amp/2),
+                                    3 * fundamental_note*(amp/3),
+                                    4 * fundamental_note*(amp/4),
+                                    5 * fundamental_note*(amp/5)]
+
+            piano_waveform = np.zeros_like(fundamental_note)
+            # Add harmonics to the sine wave
+            for harmonics in harmonic_frequencies:
+                piano_waveform += harmonics
+            # Normalize the waveform
+            piano_waveform /= np.max(np.abs(piano_waveform))
+            # Append the waveforms
+            self.song = np.concatenate([self.song, piano_waveform])
 
         duration = int(len(self.song) / self.SAMPLE_RATE)
 
