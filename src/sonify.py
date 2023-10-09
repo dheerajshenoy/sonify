@@ -1,10 +1,12 @@
 import sys
 import matplotlib
+
+from statusbar import StatusBar
 matplotlib.use('Qt5Agg')
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import (QCoreApplication, Qt, QFileInfo, pyqtSignal as Signal, pyqtSlot as Slot)
 from PyQt6.QtGui import QAction, QIcon
-from PyQt6.QtWidgets import (QComboBox, QFileDialog, QLabel, QLineEdit, QPushButton, QStatusBar,
+from PyQt6.QtWidgets import (QComboBox, QFileDialog, QLabel, QLineEdit, QPushButton, QSpinBox, QStatusBar,
                              QWidget, QApplication, QMainWindow, QToolBar, QSplitter, QVBoxLayout,
                              QHBoxLayout, QGridLayout, QMenu, QMenuBar, QProgressBar
                              )
@@ -25,6 +27,8 @@ import resources
 
 # Global Variables
 IMAGE_DIR = "images/"
+SKIPW = 5
+SKIPH = 5
 
 # duration = int(len(self.song) / self.SAMPLE_RATE)
 
@@ -41,6 +45,9 @@ class PlayAudio(QThread):
         sd.stop()
         self.exit()
 
+class Sonify(QThread):
+    def __init__(self, 
+
 # Main Window class
 class MainWindow(QMainWindow):
     music_signal = Signal(int)
@@ -50,6 +57,7 @@ class MainWindow(QMainWindow):
         self.HandleVars()
         self.InitGUI()
         self.show()
+        self.Get_piano_notes()
     
     def HandleVars(self):
         self.is_music_playing = False
@@ -99,11 +107,29 @@ class MainWindow(QMainWindow):
         self.traverseComboBox.addItem("Radial")
         self.traverseComboBox.addItem("Circular")
 
+        # Skip Combo Box H and W
+
+        self.skipLayout = QHBoxLayout()
+        self.skipLabel = QLabel("Skip")
+        self.skipHLabel = QLabel("H")
+        self.skipWLabel = QLabel("W")
+
+        self.skipHBox = QLineEdit()
+        self.skipHBox.setPlaceholderText(str(SKIPH))
+        self.skipWBox = QLineEdit()
+        self.skipWBox.setPlaceholderText(str(SKIPW))
+
+        self.skipLayout.addWidget(self.skipLabel)
+        self.skipLayout.addWidget(self.skipHLabel)
+        self.skipLayout.addWidget(self.skipHBox)
+        self.skipLayout.addWidget(self.skipWLabel)
+        self.skipLayout.addWidget(self.skipWBox)
 
         # self.drawerLayout.addWidget(QLabel("Drawer"))
         self.drawer.setLayout(self.drawerLayout)
 
-        # Map Label
+        # Mapping
+
         self.mapLabel = QLabel("Mapping")
         self.mapLabel.setToolTip("Method of mapping the feature of image to parameters of sound")
 
@@ -130,14 +156,29 @@ class MainWindow(QMainWindow):
         self.scaleComboBox = QComboBox()
         self.scaleComboBox.addItems(["AEOLIAN", "BLUES", "PHYRIGIAN", "CHROMATIC", "DORIAN", "HARMONIC_MINOR", "LYDIAN",
                                      "MAJOR", "MELODIC_MINOR", "MINOR", "MIXOLYDIAN", "NATURAL_MINOR", "PENTATONIC"])
+
+        # Key Combo Box
+        self.keyLabel = QLabel("Key")
+
+        self.keyComboBox = QComboBox()
+        self.keyComboBox.addItems(['A','a','B','C','c','D','d','E','F','f','G','g'])
             
+        # Octave Spinner Box
+        
+        self.octaveLabel = QLabel("Octave")
+
+        self.octaveSpinner = QSpinBox()
+        self.octaveSpinner.setRange(0, 8)
+
+
         # Sonify Button
 
         self.sonifyButton = QPushButton(QIcon(":/icons/sonify.png"), " Sonify")
         self.sonifyButton.setToolTip("Sonify")
         self.sonifyButton.setDisabled(True)
         # self.sonifyButton.clicked.connect(self.Sonify)
-        self.sonifyButton.clicked.connect(self.genOtherScale)
+        # self.sonifyButton.clicked.connect(self.genOtherScale)
+        self.sonifyButton.clicked.connect(self.SonifyThread)
 
         # Play Button
         self.playButton = QPushButton(QIcon(":/icons/play.png"), " Play")
@@ -153,24 +194,30 @@ class MainWindow(QMainWindow):
         # Drawer Layout
         self.drawerLayout.addWidget(self.traverseLabel, 0, 0)
         self.drawerLayout.addWidget(self.traverseComboBox, 0, 1)
-        self.drawerLayout.addWidget(self.mapLabel, 1, 0)
-        self.drawerLayout.addWidget(self.mapComboBox, 1, 1)
-        self.drawerLayout.addWidget(self.sampleRateLabel, 2, 0)
-        self.drawerLayout.addWidget(self.sampleRateComboBox, 2, 1)
-        self.drawerLayout.addWidget(self.noteDurationLabel, 3, 0)
-        self.drawerLayout.addWidget(self.noteDurationBox, 3, 1)
-        self.drawerLayout.addWidget(self.scaleLabel, 4, 0)
-        self.drawerLayout.addWidget(self.scaleComboBox, 4, 1)
+        self.drawerLayout.addLayout(self.skipLayout, 1, 0, 1, 2)
+        self.drawerLayout.addWidget(self.mapLabel, 2, 0)
+        self.drawerLayout.addWidget(self.mapComboBox, 2, 1)
+        self.drawerLayout.addWidget(self.sampleRateLabel, 3, 0)
+        self.drawerLayout.addWidget(self.sampleRateComboBox, 3, 1)
+        self.drawerLayout.addWidget(self.noteDurationLabel, 4, 0)
+        self.drawerLayout.addWidget(self.noteDurationBox, 4, 1)
+        self.drawerLayout.addWidget(self.scaleLabel, 5, 0)
+        self.drawerLayout.addWidget(self.scaleComboBox, 5, 1)
+        self.drawerLayout.addWidget(self.keyLabel, 6, 0)
+        self.drawerLayout.addWidget(self.keyComboBox, 6, 1)
+        self.drawerLayout.addWidget(self.octaveLabel, 7, 0)
+        self.drawerLayout.addWidget(self.octaveSpinner, 7, 1)
+
+        self.drawerLayout.addWidget(self.durationLabelText, 9, 0, Qt.AlignmentFlag.AlignHCenter)
+        self.drawerLayout.addWidget(self.durationLabel, 9, 1, Qt.AlignmentFlag.AlignHCenter)
+
 
         self.drawerBtnsLayout = QHBoxLayout()
         self.drawerBtnsLayout.addWidget(self.sonifyButton)
         self.drawerBtnsLayout.addWidget(self.playButton)
-        self.drawerLayout.addLayout(self.drawerBtnsLayout, 5, 0, 1, 2)
+        self.drawerLayout.addLayout(self.drawerBtnsLayout, 8, 0, 1, 2)
 
         self.drawerLayout.setRowStretch(10, 1)
-
-        self.drawerLayout.addWidget(self.durationLabelText, 6, 0, Qt.AlignmentFlag.AlignHCenter)
-        self.drawerLayout.addWidget(self.durationLabel, 6, 1, Qt.AlignmentFlag.AlignHCenter)
 
         # Drawer Max Width
         self.drawer.setMinimumWidth(self.drawer.minimumWidth())
@@ -237,7 +284,7 @@ class MainWindow(QMainWindow):
         self.InitMenubar()
         self.InitToolbar()
         self.InitMainWidget()
-        self.InitStatusBar()
+        self.InitStatusBar2()
 
         self.setCentralWidget(self.mainWidget)
 
@@ -326,23 +373,34 @@ class MainWindow(QMainWindow):
         self.toolbar.addAction(self.toolbar_selection)
         self.toolbar.addAction(self.toolbar_download)
 
-    # Initialisation function for the statusbar
-    def InitStatusBar(self):
-        self.statusbar = QStatusBar()
-        self.statusbar_layout = QHBoxLayout()
-        self.setStatusBar(self.statusbar)
+    def InitStatusBar2(self):
+        self.statusbar = StatusBar()
         self.mainLayout.addWidget(self.statusbar)
 
-        self.statusbar.setMaximumHeight(20)
+        self.statusbar.setMsg("Hello World", 5)
+        self.statusbar.setMaximumHeight(40)
 
-        self.status_fileName = QLabel("File Name")
-        self.status_fileSize = QLabel("File Size")
-        self.status_fileDim = QLabel("File Dimension")
-        self.statusbar.addPermanentWidget(self.status_fileName, 0)
-        self.statusbar.addPermanentWidget(self.status_fileSize, 0)
-        self.statusbar.addPermanentWidget(self.status_fileDim, 0)
+        self.progressbar = self.statusbar.ProgressBar()
 
-        self.Msg("Hello World....", 5)
+
+    # Initialisation function for the statusbar
+    # def InitStatusBar(self):
+    #     self.statusbar = QStatusBar()
+    #     self.statusbar_layout = QHBoxLayout()
+    #     self.setStatusBar(self.statusbar)
+    #     self.mainLayout.addWidget(self.statusbar)
+    #
+    #     self.statusbar.setMaximumHeight(20)
+    #
+    #     self.status_fileName = QLabel("File Name")
+    #     self.status_fileSize = QLabel("File Size")
+    #     self.status_fileDim = QLabel("File Dimension")
+    #
+    #     self.statusbar.addPermanentWidget(self.status_fileName, 0)
+    #     self.statusbar.addPermanentWidget(self.status_fileSize, 0)
+    #     self.statusbar.addPermanentWidget(self.status_fileDim, 0)
+    #
+    #     self.Msg("Hello World....", 5)
 
     # Initialisation function for the main widget
     def InitMainWidget(self):
@@ -405,14 +463,18 @@ class MainWindow(QMainWindow):
             self._img.set_data(self.img)
         self.UpdateCanvas()
         # Update the statusbar info
-        self.status_fileName.setText(self.file)
-        self.status_fileSize.setText(self.FileSize())
-        self.status_fileDim.setText(str(self.imghsv.shape))
+        # self.status_fileName.setText(self.file)
+        # self.status_fileSize.setText(self.FileSize())
+        # self.status_fileDim.setText(str(self.imghsv.shape))
+
+        self.statusbar.setFileName(self.file)
+        self.statusbar.setFileSize(self.FileSize())
+        self.statusbar.setFileDim(str(self.imghsv.shape))
+
         self.sonifyButton.setEnabled(True)
 
     # Function that handles the sonification
     def Sonify(self):
-        self.progressbar_sonify = QProgressBar()
 
         self.img_height, self.img_width, self.img_nlayers = self.imghsv.shape
         self.hues = []
@@ -454,13 +516,12 @@ class MainWindow(QMainWindow):
             # Append the waveforms
             self.song = np.concatenate([self.song, piano_waveform])
 
-        self.statusbar.addPermanentWidget(self.progressbar_sonify)
-
+        self.statusbar.showProgressBar()
         self.playButton.setEnabled(True)
 
     # Helper function for showing message in the statusbar
     def Msg(self, msg = None, t = 1):
-        self.statusbar.showMessage(msg, t * 1000)
+        self.statusbar.setMsg(msg, t * 1000)
     
     #TODO: Overlay line on the image while playing audio
     def MoveHorizLine(self):
@@ -478,30 +539,34 @@ class MainWindow(QMainWindow):
 
     # IMAGE TRAVERSING:
 
+
     # Horizontal Left to Right Traversal
-    def Traverse_Horizontal_LR(self, skipw, skiph):
+    def Traverse_Horizontal_LR(self, skipw = SKIPW, skiph = SKIPH):
         for j in range(0, self.img_width, skipw):
             for i in range(0, self.img_height, skiph):
                 hue = self.imghsv[i][j][0]
                 self.hues.append(hue)
     
     # Horizontal Right to Left Traversal
-    def Traverse_Horizontal_RL(self, skipw, skiph):
+    def Traverse_Horizontal_RL(self, skipw = SKIPW, skiph = SKIPH):
         for j in range(self.img_width, 0, -skipw):
             for i in range(0, self.img_height, skiph):
                 hue = self.imghsv[i][j][0]
                 self.hues.append(hue)
 
     # Vertical Bottom to Top Traversal
-    def Traverse_Vertical_BT(self, skipw, skiph):
-        for j in range(self.img_width, 0, -skipw):
-            for i in range(0, self.img_height, skiph):
-                hue = self.imghsv[i][j][0]
-                self.hues.append(hue)
-    
-    # Vertical Top to Bottom Traversal
-    def Traverse_Vertical_TB(self, skipw, skiph):
-        pass
+    # def Traverse_Vertical_BT(self, skipw, skiph):
+    #     for i in range(self.img_height, 0, -skiph):
+    #         for j in range(sef.
+    #             hue = self.imghsv[i][j][0]
+    #             self.hues.append(hue)
+    # 
+    # # Vertical Top to Bottom Traversal
+    # def Traverse_Vertical_TB(self, skipw, skiph):
+    #     for j in range(self.img_width, 0, -skipw):
+    #         for i in range(0, self.img_height, skiph):
+    #             hue = self.imghsv[i][j][0]
+    #             self.hues.append(hue)
     
     def Traverse_Radial(self, skipR, skipT):
         pass
@@ -515,6 +580,7 @@ class MainWindow(QMainWindow):
         octave = ['C', 'c', 'D', 'd', 'E', 'F', 'f', 'G', 'g', 'A', 'a', 'B'] 
         base_freq = 440 #Frequency of Note A4
         keys = np.array([x+str(y) for y in range(0,9) for x in octave])
+        print(keys)
         # Trim to standard 88 keys
         start = np.where(keys == 'A0')[0][0]
         end = np.where(keys == 'C8')[0][0]
@@ -533,7 +599,8 @@ class MainWindow(QMainWindow):
         note_freqs = self.Get_piano_notes()
         scale_intervals = ['A','a','B','C','c','D','d','E','F','f','G','g']
         
-        key = 'G'
+        key = self.keyComboBox.currentText()
+        # key = 'G'
         #Find index of desired key
         index = scale_intervals.index(key)
 
@@ -591,8 +658,10 @@ class MainWindow(QMainWindow):
         freqs = []
         #harmony = []
         #harmony_val = harmony_select[makeHarmony]
+        octave = self.octaveSpinner.text()
+
         for i in range(nNotes):
-            note = new_scale[scale[i]] + str(3)
+            note = new_scale[scale[i]] + octave
             freqToAdd = note_freqs[note]
             freqs.append(freqToAdd)
             #harmony.append(harmony_val*freqToAdd)
@@ -629,15 +698,13 @@ class MainWindow(QMainWindow):
         #nPixels = int(len(frequencies))#All pixels in image
         nPixels = int(len(self.frequencies))
         
-        self.progressbar_sonify = QProgressBar()
-        self.statusbar.addPermanentWidget(self.progressbar_sonify)
 
         amp = 100
 
         octaves = np.array([0.5, 1, 2, 3, 4, 5])
 
         for i in range(nPixels):
-            self.progressbar_sonify.setValue(int(i / nPixels * 100))
+            self.progressbar.setValue(int(i / nPixels * 100))
 
             val = self.frequencies[i]
             fundamental_note = np.sin(2 * np.pi * val * self.t)
@@ -662,9 +729,12 @@ class MainWindow(QMainWindow):
 
         self.durationLabel.setText(str(self.ConvertStoHMS(duration)))
 
-        self.statusbar.removeWidget(self.progressbar_sonify)
+        self.statusbar.hideProgressBar()
         self.playButton.setEnabled(True)
         self.toolbar_download.setEnabled(True)
+
+    def SonifyThread(self):
+        self.
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
