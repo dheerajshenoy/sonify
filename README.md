@@ -9,6 +9,8 @@ A python program to sonify image
 ![SciPy](https://img.shields.io/badge/SciPy-%230C55A5.svg?style=for-the-badge&logo=scipy&logoColor=%white)
 ![Matplotlib](https://img.shields.io/badge/Matplotlib-%23ffffff.svg?style=for-the-badge&logo=Matplotlib&logoColor=black)
 
+![GG](https://img.shields.io/badge/gandi-bot)
+
 
 
 # Installation
