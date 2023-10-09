@@ -28,5 +28,3 @@ A python program to sonify image
 * resources.py - Files that contain information about the icons used in the GUI
 
 # Screenshots
-
-![s1](img1.png)
