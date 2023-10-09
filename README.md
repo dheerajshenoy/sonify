@@ -28,3 +28,10 @@ A python program to sonify image
 * resources.py - Files that contain information about the icons used in the GUI
 
 # Screenshots
+
+![img1](https://github.com/dheerajshenoy/sonify/assets/21986384/7da70691-6bce-41d9-9299-612a1b58af5e)
+![img2](https://github.com/dheerajshenoy/sonify/assets/21986384/bcf9404e-55cf-4140-915f-0074e9dd2ad7)
+
+
+
+
