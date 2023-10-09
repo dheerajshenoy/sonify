@@ -1,6 +1,9 @@
 # sonify
 A python program to sonify image
 
+![NumPy](https://img.shields.io/badge/numpy-%23013243.svg?style=for-the-badge&logo=numpy&logoColor=white)
+
+
 # Installation
 
 * First install the dependencies required for the program using pip
@@ -9,11 +12,9 @@ A python program to sonify image
 
 * Then run the .py file in the src directory
 
-`python src/GUI.py`
+`python src/sonify.py`
 
 # Files in the src directory
 
-* GUI.py - The main file with the frontend and backend codes
-* resources.py - Resources of the icons used in the program
-* sonify.py - (OLD) The backend code
-* Sonify.ipynb - (OLD) Jupyter notebook of the code
+* sonify.py - The main sonify GUI program
+* resources.py - Files that contain information about the icons used in the GUI
