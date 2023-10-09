@@ -10,7 +10,9 @@ A python program to sonify image
 ![Matplotlib](https://img.shields.io/badge/Matplotlib-%23ffffff.svg?style=for-the-badge&logo=Matplotlib&logoColor=black)
 ![OpenCV](https://img.shields.io/badge/opencv-%23white.svg?style=for-the-badge&logo=opencv&logoColor=white)
 
+# Documentation
 
+* [Document explaining the working behind the program](./DOC.docx)
 
 # Installation
 
