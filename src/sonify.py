@@ -1,36 +1,35 @@
 import sys
+import os
 import matplotlib
+import resources
+import numpy as np
+import pandas as pd
+import cv2
+import sounddevice as sd
 
-from statusbar import StatusBar
-matplotlib.use('Qt5Agg')
-from PyQt6 import QtWidgets
 from PyQt6.QtCore import (QCoreApplication, Qt, QFileInfo, pyqtSignal as Signal, pyqtSlot as Slot)
 from PyQt6.QtGui import QAction, QIcon
-from PyQt6.QtWidgets import (QComboBox, QFileDialog, QLabel, QLineEdit, QPushButton, QSpinBox, QStatusBar,
-                             QWidget, QApplication, QMainWindow, QToolBar, QSplitter, QVBoxLayout,
-                             QHBoxLayout, QGridLayout, QMenu, QMenuBar, QProgressBar
+from PyQt6.QtWidgets import (QComboBox, QFileDialog, QLabel, QLineEdit,
+                             QPushButton, QSpinBox, QStatusBar,
+                             QWidget, QApplication, QMainWindow,
+                             QToolBar, QSplitter, QVBoxLayout,
+                             QHBoxLayout, QGridLayout, QMenu,
+                             QMenuBar, QProgressBar, 
                              )
 from PyQt6.QtCore import QThread
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.animation import FuncAnimation
 from PIL import Image
-import numpy as np
-import pandas as pd
-import cv2
-import sounddevice as sd
-import random as rand
-import scipy as sp
 from scipy.io import wavfile
+from statusbar import StatusBar
+import utils
 
-import resources
+matplotlib.use('Qt5Agg')
 
 # Global Variables
-IMAGE_DIR = "images/"
 SKIPW = 5
 SKIPH = 5
-
-# duration = int(len(self.song) / self.SAMPLE_RATE)
 
 class PlayAudio(QThread):
     def __init__(self, audio, SR):
@@ -54,7 +53,6 @@ class MainWindow(QMainWindow):
         self.HandleVars()
         self.InitGUI()
         self.show()
-        self.Get_piano_notes()
     
     def HandleVars(self):
         self.is_music_playing = False
@@ -102,7 +100,10 @@ class MainWindow(QMainWindow):
         self.traverseComboBox.setItemIcon(3, QIcon(":/icons/bottom_to_top.png"))
 
         self.traverseComboBox.addItem("Radial")
+        self.traverseComboBox.setItemIcon(4, QIcon(":/icons/radial.png"))
+
         self.traverseComboBox.addItem("Circular")
+        self.traverseComboBox.setItemIcon(5, QIcon(":/icons/circular.png"))
 
         # Skip Combo Box H and W
         self.skipLayout = QHBoxLayout()
@@ -154,6 +155,7 @@ class MainWindow(QMainWindow):
         self.keyLabel = QLabel("Key")
 
         self.keyComboBox = QComboBox()
+
         self.keyComboBox.addItems(['A','a','B','C','c','D','d','E','F','f','G','g'])
             
         # Octave Spinner Box
@@ -179,6 +181,7 @@ class MainWindow(QMainWindow):
 
         # Duration Label
         self.durationLabelText = QLabel("Duration: ")
+        self.durationLabelText.setHidden(True)
         self.durationLabel = QLabel("")
 
         # Drawer Layout
@@ -199,8 +202,8 @@ class MainWindow(QMainWindow):
         self.drawerLayout.addWidget(self.octaveLabel, 7, 0)
         self.drawerLayout.addWidget(self.octaveSpinner, 7, 1)
 
-        self.drawerLayout.addWidget(self.durationLabelText, 9, 0, Qt.AlignmentFlag.AlignHCenter)
-        self.drawerLayout.addWidget(self.durationLabel, 9, 1, Qt.AlignmentFlag.AlignHCenter)
+        self.drawerLayout.addWidget(self.durationLabelText, 9, 0, 1, 2, Qt.AlignmentFlag.AlignHCenter)
+        self.drawerLayout.addWidget(self.durationLabel, 9, 0, 1, 2, Qt.AlignmentFlag.AlignRight)
 
 
         self.drawerBtnsLayout = QHBoxLayout()
@@ -216,9 +219,21 @@ class MainWindow(QMainWindow):
     
     # Function to save the audio in different formats
     def Download(self):
-        file = QFileDialog().getSaveFileName()
+        file, ext = QFileDialog().getSaveFileName(self, "Save Audio As", os.path.splitext(os.path.basename(self.file))[0]
+                                             , "Wave File (*.wav);; MPEG 3 (*.mp3)")
+        print(ext)
         if file != "":
-            wavfile.write(file[0], self.SAMPLE_RATE, self.song)
+            format = ext.split(" ")[-1]
+            match format:
+                case "(*.mp3)":
+                    # TODO: Handle mp3 file writing
+                    self.Msg("Mp3 saving is not yet supported!", 5)
+
+                case "(*.wav)":
+                    if wavfile.write(file, self.SAMPLE_RATE, self.song):
+                        self.Msg("File {} saved!".format(file), 5)
+                    else:
+                        self.Msg("Unable to save file {}".format(file))
         else:
             self.Msg("Please select a file to save", 5)
 
@@ -238,12 +253,7 @@ class MainWindow(QMainWindow):
         else:
             self.file = fileName
         
-        self.Msg("Loading Image", 2)
         self.ReadImage()
-        self.Msg("Image Loaded", 5)
-
-    def FileSize(self):
-        return str(QFileInfo(self.file).size())
 
     def Hue2freq(self, h,scale_freqs):
         thresholds = [26 , 52 , 78 , 104,  128 , 154 , 180]
@@ -454,13 +464,9 @@ class MainWindow(QMainWindow):
         else:
             self._img.set_data(self.img)
         self.UpdateCanvas()
-        # Update the statusbar info
-        # self.status_fileName.setText(self.file)
-        # self.status_fileSize.setText(self.FileSize())
-        # self.status_fileDim.setText(str(self.imghsv.shape))
 
         self.statusbar.setFileName(self.file)
-        self.statusbar.setFileSize(self.FileSize())
+        self.statusbar.setFileSize(utils.FileSize(self.file))
         self.statusbar.setFileDim(str(self.imghsv.shape))
 
         self.sonifyButton.setEnabled(True)
@@ -572,7 +578,6 @@ class MainWindow(QMainWindow):
         octave = ['C', 'c', 'D', 'd', 'E', 'F', 'f', 'G', 'g', 'A', 'a', 'B'] 
         base_freq = 440 #Frequency of Note A4
         keys = np.array([x+str(y) for y in range(0,9) for x in octave])
-        print(keys)
         # Trim to standard 88 keys
         start = np.where(keys == 'A0')[0][0]
         end = np.where(keys == 'C8')[0][0]
@@ -650,10 +655,10 @@ class MainWindow(QMainWindow):
         freqs = []
         #harmony = []
         #harmony_val = harmony_select[makeHarmony]
-        octave = self.octaveSpinner.text()
+        # octave = self.octaveSpinner.text()
 
         for i in range(nNotes):
-            note = new_scale[scale[i]] + octave
+            note = new_scale[scale[i]] + str(3)
             freqToAdd = note_freqs[note]
             freqs.append(freqToAdd)
             #harmony.append(harmony_val*freqToAdd)
@@ -687,49 +692,34 @@ class MainWindow(QMainWindow):
             self.T = 0.1
 
         self.t = np.linspace(0, self.T, int(self.T*self.SAMPLE_RATE), endpoint=False) # time variable
-        #nPixels = int(len(frequencies))#All pixels in image
-        # nPixels = int(len(self.frequencies))
         amp = 100
         
         self.sonify_worker = SonifyThread(self.frequencies, amp, self.t, self.song)
+        self.progressbar.setHidden(False)
+        self.sonify_worker.progress.connect(self.SonifyProgress)
+        self.sonify_worker.finished.connect(self.SonifyFinished)
+        self.sonify_worker.start()
 
+    def SonifyProgress(self, val):
+        self.progressbar.setValue(val)
 
-        # octaves = np.array([0.5, 1, 2, 3, 4, 5])
-
-        # for i in range(nPixels):
-        #     self.progressbar.setValue(int(i / nPixels * 100))
-        #
-        #     val = self.frequencies[i]
-        #     fundamental_note = np.sin(2 * np.pi * val * self.t)
-        #
-        #     #create harmonics as well as apply ADSR envelope
-        #     harmonic_frequencies = [amp*fundamental_note,
-        #                             2 * fundamental_note*(amp/2),
-        #                             3 * fundamental_note*(amp/3),
-        #                             4 * fundamental_note*(amp/4),
-        #                             5 * fundamental_note*(amp/5)]
-        #
-        #     piano_waveform = np.zeros_like(fundamental_note)
-        #     # Add harmonics to the sine wave
-        #     for harmonics in harmonic_frequencies:
-        #         piano_waveform += harmonics
-        #     # Normalize the waveform
-        #     piano_waveform /= np.max(np.abs(piano_waveform))
-        #     # Append the waveforms
-        #     self.song = np.concatenate([self.song, piano_waveform])
-
-        duration = int(len(self.song) / self.SAMPLE_RATE)
-
-        self.durationLabel.setText(str(self.ConvertStoHMS(duration)))
+    def SonifyFinished(self, s):
         self.statusbar.hideProgressBar()
+        self.Msg("Image Loaded", 3)
+        self.song = s
+        duration = int(len(self.song) / self.SAMPLE_RATE)
+        self.durationLabelText.setHidden(False)
+        self.durationLabel.setText(str(self.ConvertStoHMS(duration)))
         self.playButton.setEnabled(True)
         self.toolbar_download.setEnabled(True)
 
+
 class SonifyThread(QThread):
-    finished = Signal()
+    finished = Signal(list)
     progress = Signal(int)
 
     def __init__(self, frequencies, amp, t, song):
+        super().__init__()
         self.song = song
         self.amp = amp
         self.t = t
@@ -738,7 +728,7 @@ class SonifyThread(QThread):
 
     def run(self):
         for i in range(self.nPixels):
-            self.progress.emit(i / self.nPixels * 100)
+            self.progress.emit(int(i / self.nPixels * 100))
 
             val = self.frequencies[i]
             fundamental_note = np.sin(2 * np.pi * val * self.t)
@@ -758,7 +748,7 @@ class SonifyThread(QThread):
             piano_waveform /= np.max(np.abs(piano_waveform))
             # Append the waveforms
             self.song = np.concatenate([self.song, piano_waveform])
-        self.finished.emit()
+        self.finished.emit(self.song)
 
 
 if __name__ == "__main__":
