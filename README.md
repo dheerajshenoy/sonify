@@ -26,3 +26,7 @@ A python program to sonify image
 
 * sonify.py - The main sonify GUI program
 * resources.py - Files that contain information about the icons used in the GUI
+
+# Screenshots
+
+![s1](img1.png)

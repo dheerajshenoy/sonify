@@ -372,15 +372,15 @@ class MainWindow(QMainWindow):
         self.worker = PlayAudio(self.song, self.SAMPLE_RATE)
         self.worker.start()
 
-        self.MoveHorizLine()
+        # self.MoveHorizLine()
           
-        duration = int(len(self.song) / self.SAMPLE_RATE)
-        refreshPeriod = 100
-        f = np.arange(0, self.img_width, 5)
-        ani = FuncAnimation(self.figure, self.animateHorizLine, frames = f,
-                            interval = 1/duration * self.img_width * self.T, blit = True, repeat = False)
-        # ani = FuncAnimation(self.figure, self.animateSinWave, init_func= self.INIT, frames = self.t, interval = 50, blit = True)
-        self.UpdateCanvas()
+        # duration = int(len(self.song) / self.SAMPLE_RATE)
+        # refreshPeriod = 100
+        # f = np.arange(0, self.img_width, 5)
+        # ani = FuncAnimation(self.figure, self.animateHorizLine, frames = f,
+        #                     interval = 1/duration * self.img_width * self.T, blit = True, repeat = False)
+        # # ani = FuncAnimation(self.figure, self.animateSinWave, init_func= self.INIT, frames = self.t, interval = 50, blit = True)
+        # self.UpdateCanvas()
 
     def INIT(self):
         self.wave, = self.ax[1].plot([], [], '.b', lw = 2)
