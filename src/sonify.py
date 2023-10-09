@@ -97,8 +97,13 @@ class MainWindow(QMainWindow):
         self.traverseComboBox.setItemIcon(3, QIcon(":/icons/bottom_to_top.png"))
 
         self.traverseComboBox.addItem("Radial")
-        self.traverseComboBox.addItem("Circular")
+        self.traverseComboBox.setItemIcon(4, QIcon(":/icons/radial.png"))
 
+        self.traverseComboBox.addItem("Circular")
+        self.traverseComboBox.setItemIcon(5, QIcon(":/icons/circular.png"))
+
+        self.traverseComboBox.model().item(4).setEnabled(False)
+        self.traverseComboBox.model().item(5).setEnabled(False)
 
         # self.drawerLayout.addWidget(QLabel("Drawer"))
         self.drawer.setLayout(self.drawerLayout)
@@ -110,6 +115,12 @@ class MainWindow(QMainWindow):
         # Map Combo Box
         self.mapComboBox = QComboBox()
         self.mapComboBox.addItem("Color to Frequency")
+        self.mapComboBox.addItem("Color to Instruments")
+        self.mapComboBox.addItem("Intensity to Frequency")
+
+        self.mapComboBox.model().item(1).setEnabled(False)
+        self.mapComboBox.model().item(2).setEnabled(False)
+
 
         # Sample Rate Combo Box
         self.sampleRateLabel = QLabel("Sample Rate")

@@ -16,5 +16,7 @@
         <file alias="right_to_left.png">icons/icon_right_to_left.png</file>
         <file alias="bottom_to_top.png">icons/icon_bottom_to_top.png</file>
         <file alias="top_to_bottom.png">icons/icon_top_to_bottom.png</file>
+        <file alias="radial.png">icons/icon_radial.png</file>
+        <file alias="circular.png">icons/icon_circular.png</file>
 </qresource>
 </RCC>

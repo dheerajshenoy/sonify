@@ -4,3 +4,6 @@
 4. [ ] Add multiple instruments
 5. [ ] Handle multiple image formats
 6. [ ] Add AI/ML for better sound outputs
+7. [ ] Make custom statusbar
+8. [ ] Change the theme of the app
+
