@@ -1,5 +1,6 @@
 from PyQt6.QtGui import QFont
-from PyQt6.QtWidgets import QGridLayout, QProgressBar, QWidget, QVBoxLayout, QHBoxLayout, QLabel
+from PyQt6.QtWidgets import (QGridLayout, QProgressBar, QPushButton, QWidget,
+                             QVBoxLayout, QHBoxLayout, QLabel)
 from PyQt6.QtCore import QTimer
 
 class StatusBar(QWidget):
@@ -22,20 +23,22 @@ class StatusBar(QWidget):
         self.sb_fileDim = QLabel()
         self.sb_progressbar = QProgressBar()
         self.sb_progressbar.setHidden(True)
+        self.sb_stopbtn = QPushButton("Stop")
+        self.sb_stopbtn.setHidden(True)
 
         self.layout.addWidget(self.sb_progressbar, 0, 0)
-        self.layout.addWidget(self.msgLabel, 0, 1)
+        self.layout.addWidget(self.sb_stopbtn, 0, 1)
+        self.layout.addWidget(self.msgLabel, 0, 2)
 
-        self.layout.setColumnStretch(5, 2)
+        self.layout.setColumnStretch(5, 3)
 
         self.layout.addWidget(self.sb_fileName, 0, 6)
         self.layout.addWidget(self.sb_fileSize, 0, 7)
         self.layout.addWidget(self.sb_fileDim, 0, 8)
 
-
-    def setMsg(self, msg, time = 2) -> None:
+    def setMsg(self, msg, time_sec = 2) -> None:
         self.msgLabel.setText(msg)
-        QTimer.singleShot(time * 1000, lambda: self.msgLabel.clear())
+        QTimer.singleShot(time_sec * 1000, lambda: self.msgLabel.clear())
 
     def setFileName(self, fileName) -> None:
         self.sb_fileName.setText(fileName)
@@ -54,3 +57,9 @@ class StatusBar(QWidget):
 
     def ProgressBar(self) -> QProgressBar:
         return self.sb_progressbar
+
+    def StopBtn(self) -> QPushButton:
+        return self.sb_stopbtn
+
+    def setStopFunc(self, func) -> None:
+        self.sb_stopbtn.clicked.connect(func)

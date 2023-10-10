@@ -351,8 +351,11 @@ class MainWindow(QMainWindow):
         # Help Menu
         
         self.action_help_about_sonify = QAction("About Sonify", self)
+        self.action_help_how_to_use = QAction("Using Sonify", self)
+        self.action_help_how_to_use.triggered.connect(lambda: self.UsingSonify)
 
         self.helpMenu.addAction(self.action_help_about_sonify)
+        self.helpMenu.addAction(self.action_help_how_to_use)
 
         self.setMenuBar(self.menubar)
 
@@ -383,6 +386,8 @@ class MainWindow(QMainWindow):
         self.statusbar.setMaximumHeight(40)
 
         self.progressbar = self.statusbar.ProgressBar()
+        self.stopButton = self.statusbar.StopBtn()
+        self.statusbar.setStopFunc(self.Stop)
 
 
     # Initialisation function for the statusbar
@@ -448,8 +453,11 @@ class MainWindow(QMainWindow):
         return self.wave,
 
     def Stop(self):
-        self.worker.stop()
-        self.is_music_playing = False
+        self.sonify_worker.terminate()
+        self.progressbar.setHidden(True)
+        self.stopButton.setHidden(True)
+        self.Msg("Sonify Stopped", 2)
+        # self.is_music_playing = False
 
         #self.worker.progress.connect(self.updateMusic)
         #self.worker.finished.connect(self.audioFinished)
@@ -519,7 +527,7 @@ class MainWindow(QMainWindow):
 
     # Helper function for showing message in the statusbar
     def Msg(self, msg = None, t = 1):
-        self.statusbar.setMsg(msg, t * 1000)
+        self.statusbar.setMsg(msg, t)
     
     #TODO: Overlay line on the image while playing audio
     def MoveHorizLine(self):
@@ -547,24 +555,24 @@ class MainWindow(QMainWindow):
     
     # Horizontal Right to Left Traversal
     def Traverse_Horizontal_RL(self, skipw = SKIPW, skiph = SKIPH):
-        for j in range(self.img_width, 0, -skipw):
+        for j in range(self.img_width - 1, 0, -skipw):
             for i in range(0, self.img_height, skiph):
                 hue = self.imghsv[i][j][0]
                 self.hues.append(hue)
 
     # Vertical Bottom to Top Traversal
-    # def Traverse_Vertical_BT(self, skipw, skiph):
-    #     for i in range(self.img_height, 0, -skiph):
-    #         for j in range(sef.
-    #             hue = self.imghsv[i][j][0]
-    #             self.hues.append(hue)
-    # 
+    def Traverse_Vertical_BT(self, skipw, skiph):
+        for i in range(self.img_height, 0, -skiph):
+            for j in range(0, self.img_width, skipw):
+                hue = self.imghsv[i][j][0]
+                self.hues.append(hue)
+
     # # Vertical Top to Bottom Traversal
-    # def Traverse_Vertical_TB(self, skipw, skiph):
-    #     for j in range(self.img_width, 0, -skipw):
-    #         for i in range(0, self.img_height, skiph):
-    #             hue = self.imghsv[i][j][0]
-    #             self.hues.append(hue)
+    def Traverse_Vertical_TB(self, skipw, skiph):
+        for j in range(self.img_width, 0, -skipw):
+            for i in range(0, self.img_height, skiph):
+                hue = self.imghsv[i][j][0]
+                self.hues.append(hue)
     
     def Traverse_Radial(self, skipR, skipT):
         pass
@@ -605,33 +613,34 @@ class MainWindow(QMainWindow):
         new_scale = scale_intervals[index:12] + scale_intervals[:index]
     
         whichScale = self.scaleComboBox.currentText()
-
-        if whichScale == 'AEOLIAN':
-            scale = [0, 2, 3, 5, 7, 8, 10]
-        elif whichScale == 'BLUES':
-            scale = [0, 2, 3, 4, 5, 7, 9, 10, 11]
-        elif whichScale == 'PHYRIGIAN':
-            scale = [0, 1, 3, 5, 7, 8, 10]
-        elif whichScale == 'CHROMATIC':
-            scale = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-        elif whichScale == 'DORIAN':
-            scale = [0, 2, 3, 5, 7, 9, 10]
-        elif whichScale == 'HARMONIC_MINOR':
-            scale = [0, 2, 3, 5, 7, 8, 11]
-        elif whichScale == 'LYDIAN':
-            scale = [0, 2, 4, 6, 7, 9, 11]
-        elif whichScale == 'MAJOR':
-            scale = [0, 2, 4, 5, 7, 9, 11]
-        elif whichScale == 'MELODIC_MINOR':
-            scale = [0, 2, 3, 5, 7, 8, 9, 10, 11]
-        elif whichScale == 'MINOR':    
-            scale = [0, 2, 3, 5, 7, 8, 10]
-        elif whichScale == 'MIXOLYDIAN':     
-            scale = [0, 2, 4, 5, 7, 9, 10]
-        elif whichScale == 'NATURAL_MINOR':   
-            scale = [0, 2, 3, 5, 7, 8, 10]
-        elif whichScale == 'PENTATONIC':    
-            scale = [0, 2, 4, 7, 9]
+        
+        match whichScale:
+            case 'AEOLIAN':
+                scale = [0, 2, 3, 5, 7, 8, 10]
+            case 'BLUES':
+                scale = [0, 2, 3, 4, 5, 7, 9, 10, 11]
+            case 'PHYRIGIAN':
+                scale = [0, 1, 3, 5, 7, 8, 10]
+            case 'CHROMATIC':
+                scale = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+            case 'DORIAN':
+                scale = [0, 2, 3, 5, 7, 9, 10]
+            case 'HARMONIC_MINOR':
+                scale = [0, 2, 3, 5, 7, 8, 11]
+            case 'LYDIAN':
+                scale = [0, 2, 4, 6, 7, 9, 11]
+            case 'MAJOR':
+                scale = [0, 2, 4, 5, 7, 9, 11]
+            case 'MELODIC_MINOR':
+                scale = [0, 2, 3, 5, 7, 8, 9, 10, 11]
+            case 'MINOR':    
+                scale = [0, 2, 3, 5, 7, 8, 10]
+            case 'MIXOLYDIAN':     
+                scale = [0, 2, 4, 5, 7, 9, 10]
+            case 'NATURAL_MINOR':   
+                scale = [0, 2, 3, 5, 7, 8, 10]
+            case 'PENTATONIC':    
+                scale = [0, 2, 4, 7, 9]
 
         harmony_select = {'U0' : 1,
                           'ST' : 16/15,
@@ -655,7 +664,7 @@ class MainWindow(QMainWindow):
         freqs = []
         #harmony = []
         #harmony_val = harmony_select[makeHarmony]
-        # octave = self.octaveSpinner.text()
+        octave = self.octaveSpinner.text()
 
         for i in range(nNotes):
             note = new_scale[scale[i]] + str(3)
@@ -696,6 +705,8 @@ class MainWindow(QMainWindow):
         
         self.sonify_worker = SonifyThread(self.frequencies, amp, self.t, self.song)
         self.progressbar.setHidden(False)
+        self.playButton.setDisabled(True)
+        self.stopButton.setHidden(False)
         self.sonify_worker.progress.connect(self.SonifyProgress)
         self.sonify_worker.finished.connect(self.SonifyFinished)
         self.sonify_worker.start()
@@ -705,14 +716,15 @@ class MainWindow(QMainWindow):
 
     def SonifyFinished(self, s):
         self.statusbar.hideProgressBar()
+        self.playButton.setEnabled(True)
         self.Msg("Image Loaded", 3)
         self.song = s
         duration = int(len(self.song) / self.SAMPLE_RATE)
         self.durationLabelText.setHidden(False)
         self.durationLabel.setText(str(self.ConvertStoHMS(duration)))
         self.playButton.setEnabled(True)
+        self.stopButton.setHidden(True)
         self.toolbar_download.setEnabled(True)
-
 
 class SonifyThread(QThread):
     finished = Signal(list)
@@ -749,7 +761,6 @@ class SonifyThread(QThread):
             # Append the waveforms
             self.song = np.concatenate([self.song, piano_waveform])
         self.finished.emit(self.song)
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
