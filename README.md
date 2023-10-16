@@ -10,6 +10,10 @@ A python program to sonify image
 ![Matplotlib](https://img.shields.io/badge/Matplotlib-%23ffffff.svg?style=for-the-badge&logo=Matplotlib&logoColor=black)
 ![OpenCV](https://img.shields.io/badge/opencv-%23white.svg?style=for-the-badge&logo=opencv&logoColor=white)
 
+# NOTE
+
+* C++ re-write of the same program is being done for extra performance. Link to the github [here](https://github.com/dheerajshenoy/sonifycpp)
+
 # Documentation
 
 * [Document explaining the working behind the program](./DOC.docx)
