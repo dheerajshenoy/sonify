@@ -35,3 +35,12 @@ def FileSize(file_name, size_type = SIZE_UNIT.MB ):
    """ Get file in size in given unit like KB, MB or GB"""
    size = os.path.getsize(file_name)
    return convert_unit(size, size_type)
+
+
+class Hello:
+    def someMethod() -> int:
+        return 10
+
+
+
+h = Hello()

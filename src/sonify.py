@@ -460,9 +460,9 @@ class MainWindow(QMainWindow):
         self.imghsv = cv2.cvtColor(np.array(self.img), cv2.COLOR_BGR2HSV)
         # self.ax.imshow(self.imghsv)
         if self._img is None:
-            self._img = self.ax[0].imshow(self.img)
+            self._img = self.ax[0].imshow(self.imghsv)
         else:
-            self._img.set_data(self.img)
+            self._img.set_data(self.imghsv)
         self.UpdateCanvas()
 
         self.statusbar.setFileName(self.file)
