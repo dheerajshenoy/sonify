@@ -38,3 +38,7 @@ A python program to sonify image
 ![img1](https://github.com/dheerajshenoy/sonify/assets/21986384/7da70691-6bce-41d9-9299-612a1b58af5e)
 ![img2](https://github.com/dheerajshenoy/sonify/assets/21986384/bcf9404e-55cf-4140-915f-0074e9dd2ad7)
 
+# Demo
+
+https://github.com/dheerajshenoy/sonify/assets/21986384/0d7b7c32-df2b-4f40-b618-855eb43f5af2
+
