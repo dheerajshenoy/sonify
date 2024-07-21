@@ -1,7 +1,6 @@
 # sonify
 Software that helps you visualize an image through audio signals. Sonification refers to the process of converting image pixels into frequencies of sounds. This software has been the efforts of me and my team members when we participated in the 2023 NASA Hackathon. 
 
-![Neovim](https://img.shields.io/badge/NeoVim-%2357A143.svg?&style=for-the-badge&logo=neovim&logoColor=white)
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 ![Qt](https://img.shields.io/badge/Qt-%23217346.svg?style=for-the-badge&logo=Qt&logoColor=white)
 ![NumPy](https://img.shields.io/badge/numpy-%23013243.svg?style=for-the-badge&logo=numpy&logoColor=white)
