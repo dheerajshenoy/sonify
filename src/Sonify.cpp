@@ -1,6 +1,6 @@
 #include "Sonify.hpp"
 
-#include "utils.hpp"
+#include "sonify/utils.hpp"
 
 #include <cmath>
 #include <cstring>
@@ -40,8 +40,25 @@ Sonify::~Sonify() noexcept
 void
 Sonify::loop() noexcept
 {
+
+    m_screenW = GetScreenWidth();
+    m_screenH = GetScreenHeight();
     while (!WindowShouldClose())
     {
+        int newW = GetScreenWidth();
+        int newH = GetScreenHeight();
+        if (newW != m_screenW || newH != m_screenH)
+        {
+            m_screenW = newW;
+            m_screenH = newH;
+
+            if (m_texture)
+            {
+                int x = m_screenW / 2 - m_texture->width() / 2;
+                int y = m_screenH / 2 - m_texture->height() / 2;
+                m_texture->setPos({ x, y });
+            }
+        }
         if (m_traversal_type == TraversalType::PATH) handleMouseEvents();
         handleMouseScroll();
         handleKeyEvents();
@@ -49,8 +66,10 @@ Sonify::loop() noexcept
 
         BeginDrawing();
         {
+
             ClearBackground(WHITE);
             BeginMode2D(m_camera);
+
             render();
             EndMode2D();
         }
@@ -68,8 +87,8 @@ Sonify::OpenImage(std::string fileName) noexcept
     }
 
     m_texture->load(fileName.c_str());
-    const int x = GetScreenWidth() / 2 - m_texture->width() / 2;
-    const int y = GetScreenHeight() / 2 - m_texture->height() / 2;
+    const int x = m_screenW / 2 - m_texture->width() / 2;
+    const int y = m_screenH / 2 - m_texture->height() / 2;
     m_texture->setPos({ x, y });
     m_image = LoadImageFromTexture(m_texture->texture());
 }
@@ -153,6 +172,8 @@ Sonify::handleKeyEvents() noexcept
     if (IsKeyPressed(KEY_SPACE)) toggleAudioPlayback();
     if (IsKeyPressed(KEY_ZERO)) recenterView();
     if (IsKeyPressed(KEY_J)) sonification();
+    if (IsKeyPressed(KEY_COMMA)) seekCursor(-1);
+    if (IsKeyPressed(KEY_PERIOD)) seekCursor(1);
 }
 
 void
@@ -730,7 +751,7 @@ Sonify::setSamplerate(int SR) noexcept
         StopAudioStream(m_stream);
         UnloadAudioStream(m_stream);
     }
-    m_stream = LoadAudioStream(m_sampleRate, 16, 1);
+    m_stream = LoadAudioStream(m_sampleRate, 16, m_channels);
     SetAudioStreamCallback(m_stream, &Sonify::audioCallback);
 }
 
@@ -741,4 +762,21 @@ Sonify::recenterView() noexcept
     m_camera.offset   = { 0, 0 };
     m_camera.rotation = 0.0f;
     m_camera.zoom     = 1.0f;
+}
+
+void
+Sonify::seekCursor(float seconds) noexcept
+{
+    // samples per second (mono = sampleRate * 1, stereo = sampleRate * 2, etc.)
+    size_t samplesPerSecond = m_sampleRate * m_channels;
+
+    long long offset = static_cast<long long>(seconds * samplesPerSecond);
+    long long newPos = static_cast<long long>(m_audioReadPos) + offset;
+
+    if (newPos < 0) newPos = 0;
+    if (newPos >= static_cast<long long>(m_audioBuffer.size()))
+        newPos = m_audioBuffer.size() - 1;
+
+    m_audioReadPos = static_cast<size_t>(newPos);
+    m_cursorUpdater(m_audioReadPos);
 }

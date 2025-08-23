@@ -4,8 +4,8 @@
 #include "DTexture.hpp"
 #include "LineItem.hpp"
 #include "PathItem.hpp"
-#include "Pixel.hpp"
 #include "argparse.hpp"
+#include "sonify/Pixel.hpp"
 
 #include <fftw3.h>
 #include <functional>
@@ -70,6 +70,8 @@ private:
     void setSamplerate(int SR) noexcept;
     void recenterView() noexcept;
 
+    void seekCursor(float seconds) noexcept;
+
 private:
 
     enum class TraversalType
@@ -95,9 +97,11 @@ private:
     bool m_finishedPlayback{ true }, m_audioPlaying{ false };
     int m_audioReadPos{ 0 };
     int m_sampleRate{ 44100 };
+    int m_channels{ 1 };
     int m_fps{ 60 };
     TraversalType m_traversal_type{ 0 };
     Camera2D m_camera;
+    int m_screenW, m_screenH;
 };
 
 static Sonify *gInstance{ nullptr };

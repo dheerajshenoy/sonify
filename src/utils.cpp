@@ -1,6 +1,6 @@
-#include "utils.hpp"
+#include "sonify/utils.hpp"
 
-#include "Pixel.hpp"
+#include "sonify/Pixel.hpp"
 
 #include <algorithm>
 #include <complex>

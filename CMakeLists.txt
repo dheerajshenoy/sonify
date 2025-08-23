@@ -3,6 +3,24 @@ project(sonify VERSION 0.1)
 
 set(CMAKE_CXX_STANDARD 23)
 
+# -----------------------------
+# Library target
+# -----------------------------
+
+set(LIB_SOURCES
+  src/utils.cpp
+)
+
+add_library(${PROJECT_NAME} STATIC ${LIB_SOURCES})
+
+target_include_directories(${PROJECT_NAME} PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+
+# -----------------------------
+# Executable target
+# -----------------------------
+
 set(SOURCES
   src/main.cpp
   src/Sonify.cpp
@@ -16,6 +34,39 @@ set(SOURCES
 set(HEADERS
 )
 
-add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
+add_executable(${PROJECT_NAME}_app ${SOURCES} ${HEADERS})
 
-target_link_libraries(${PROJECT_NAME} raylib)
+target_link_libraries(${PROJECT_NAME}_app raylib)
+
+# Include directories
+target_include_directories(${PROJECT_NAME}_app PRIVATE
+  ${CMAKE_SOURCE_DIR}/include
+)
+
+# -----------------------------
+# Installation
+# -----------------------------
+# Install library
+install(TARGETS ${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}-targets
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+# Install headers
+install(DIRECTORY include/${PROJECT_NAME}
+  DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+# Install app binary
+install(TARGETS ${PROJECT_NAME}_app
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  RENAME ${PROJECT_NAME}
+)
+
+# Export CMake package
+install(EXPORT ${PROJECT_NAME}-targets
+  FILE ${PROJECT_NAME}-config.cmake
+  NAMESPACE ${PROJECT_NAME}::
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
