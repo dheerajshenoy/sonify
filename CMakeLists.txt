@@ -9,6 +9,7 @@ set(SOURCES
   src/DTexture.cpp
   src/utils.cpp
   src/LineItem.cpp
+  src/CircleItem.cpp
 )
 
 set(HEADERS
@@ -16,4 +17,4 @@ set(HEADERS
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
-target_link_libraries(${PROJECT_NAME} raylib sonifycpp)
+target_link_libraries(${PROJECT_NAME} raylib)
