@@ -1,10 +1,11 @@
 #pragma once
 
+#include "CircleItem.hpp"
 #include "DTexture.hpp"
 #include "LineItem.hpp"
 #include "Pixel.hpp"
-#include "utils.hpp"
 
+#include <fftw3.h>
 #include <functional>
 #include <raylib.h>
 #include <string>
@@ -27,18 +28,67 @@ private:
     void sonification() noexcept;
     void loop() noexcept;
     void render() noexcept;
-    DTexture *m_texture{ new DTexture() };
-    AudioStream m_stream;
-    std::vector<Pixel> m_pixelColumn; // temporary column storage
-    std::vector<short> m_audioBuffer;
-    LineItem *m_li{ new LineItem() };
-    bool m_finishedPlayback{ true }, m_audioPlaying{ false };
-    int m_audioReadPos{ 0 };
-    float m_zoom{ 1.0f };
     void handleMouseScroll() noexcept;
     void handleKeyEvents() noexcept;
     void toggleAudioPlayback() noexcept;
-    void setAudioReadPos(int pos) noexcept;
+    void updateCursorUpdater() noexcept;
+    void collectLeftToRight(Color *pixels, int w, int h,
+                            std::vector<std::vector<short>> &buffer) noexcept;
+
+    void collectRightToLeft(Color *pixels, int w, int h,
+                            std::vector<std::vector<short>> &buffer) noexcept;
+
+    void collectTopToBottom(Color *pixels, int w, int h,
+                            std::vector<std::vector<short>> &buffer) noexcept;
+
+    void collectBottomToTop(Color *pixels, int w, int h,
+                            std::vector<std::vector<short>> &buffer) noexcept;
+
+    void collectClockwise(Color *pixels, int w, int h,
+                          std::vector<std::vector<short>> &buffer) noexcept;
+    void
+    collectCircleOutwards(Color *pixels, int w, int h,
+                          std::vector<std::vector<short>> &buffer) noexcept;
+
+    void collectCircleInwards(Color *pixels, int w, int h,
+                              std::vector<std::vector<short>> &buffer) noexcept;
+
+    void collectPath(Color *pixels, int w, int h,
+                     std::vector<std::vector<short>> &buffer) noexcept;
+    void collectRegion(Color *pixels, int w, int h,
+                       std::vector<std::vector<short>> &buffer) noexcept;
+
+    void collectAntiClockwise(Color *pixels, int w, int h,
+                              std::vector<std::vector<short>> &buffer) noexcept;
+
+    using CursorUpdater = std::function<void(int pos)>;
+    CursorUpdater m_cursorUpdater;
+
+private:
+
+    enum class TraversalType
+    {
+        LEFT_TO_RIGHT = 0,
+        RIGHT_TO_LEFT,
+        TOP_TO_BOTTOM,
+        BOTTOM_TO_TOP,
+        CIRCLE_INWARDS,
+        CIRCLE_OUTWARDS,
+        CLOCKWISE,
+        ANTICLOCKWISE,
+        PATH,
+        REGION
+    };
+    DTexture *m_texture{ new DTexture() };
+    AudioStream m_stream;
+    std::vector<short> m_audioBuffer;
+    LineItem *m_li{ nullptr };
+    CircleItem *m_ci{ nullptr };
+    bool m_finishedPlayback{ true }, m_audioPlaying{ false };
+    int m_audioReadPos{ 0 };
+    float m_zoom{ 1.0f };
+
+    TraversalType m_traversal_type{ 7 };
     Camera2D m_camera;
 };
 
