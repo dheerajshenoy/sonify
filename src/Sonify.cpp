@@ -16,19 +16,17 @@ Sonify::Sonify() noexcept
 
     gInstance = this;
 
-    OpenImage("/home/neo/Gits/sonifycpp/images/clock.png");
+    OpenImage("/home/neo/Downloads/300x300-061-e1340955308953.jpg");
     InitAudioDevice();
     SetAudioStreamBufferSizeDefault(4096);
     m_stream = LoadAudioStream(44100, 16, 1);
-    SetAudioStreamCallback(
-        m_stream, &Sonify::audioCallback); // let callback know which object
+    SetAudioStreamCallback(m_stream, &Sonify::audioCallback);
 
     m_camera          = { 0 };
     m_camera.target   = { 0, 0 };
     m_camera.offset   = { 0, 0 };
     m_camera.rotation = 0.0f;
     m_camera.zoom     = 1.0f;
-    sonification();
     loop();
 }
 
@@ -44,15 +42,15 @@ Sonify::loop() noexcept
 {
     while (!WindowShouldClose())
     {
+        if (m_traversal_type == TraversalType::PATH) handleMouseEvents();
         handleMouseScroll();
         handleKeyEvents();
-        m_cursorUpdater(m_audioReadPos);
+        if (m_audioPlaying && m_cursorUpdater) m_cursorUpdater(m_audioReadPos);
 
         BeginDrawing();
         {
             ClearBackground(WHITE);
             BeginMode2D(m_camera);
-
             render();
             EndMode2D();
         }
@@ -67,6 +65,7 @@ Sonify::OpenImage(const std::string &fileName) noexcept
     int x = GetScreenWidth() / 2 - m_texture->width() / 2;
     int y = GetScreenHeight() / 2 - m_texture->height() / 2;
     m_texture->setPos({ x, y });
+    m_image = LoadImageFromTexture(m_texture->texture());
 }
 
 void
@@ -75,6 +74,7 @@ Sonify::render() noexcept
     m_texture->render();
     if (m_li) m_li->render();
     if (m_ci) m_ci->render();
+    if (m_pi) m_pi->render();
 }
 
 std::vector<short>
@@ -90,11 +90,9 @@ Sonify::mapFunc(const std::vector<Pixel> &pixelColumn) noexcept
     for (const auto &px : pixelColumn)
     {
         HSV hsv = utils::RGBtoHSV(px.rgba);
-        f += mapper(0, 200, 0, 4000, hsv.v);
-        // f += hsv.v;
-        // if (intensity != 0) LOG("{}", intensity);
+        f += mapper(0, 200, 0, 4000, hsv.h);
     }
-    utils::generateSineWave(fs, 0.25, f, 0.01, 44100);
+    utils::generateSineWave(fs, 0.5, f, 0.01, 44100);
     return fs;
 }
 
@@ -147,6 +145,8 @@ Sonify::handleKeyEvents() noexcept
     if (IsKeyDown(KEY_A)) m_camera.target.x -= panSpeed;
     if (IsKeyDown(KEY_D)) m_camera.target.x += panSpeed;
     if (IsKeyPressed(KEY_SPACE)) toggleAudioPlayback();
+
+    if (IsKeyPressed(KEY_J)) sonification();
 }
 
 void
@@ -170,12 +170,12 @@ Sonify::toggleAudioPlayback() noexcept
 void
 Sonify::sonification() noexcept
 {
-    auto image    = LoadImageFromTexture(m_texture->texture());
-    Color *pixels = LoadImageColors(image);
-    int h         = image.height;
-    int w         = image.width;
+    Color *pixels = LoadImageColors(m_image);
+    int h         = m_image.height;
+    int w         = m_image.width;
 
     std::vector<std::vector<short>> soundBuffer;
+    m_audioBuffer.clear();
 
     updateCursorUpdater();
 
@@ -213,7 +213,13 @@ Sonify::sonification() noexcept
             collectAntiClockwise(pixels, w, h, soundBuffer);
             break;
 
-        case TraversalType::PATH: collectPath(pixels, w, h, soundBuffer); break;
+        case TraversalType::PATH:
+        {
+            const auto &pathPixels = m_pi->pixels();
+            for (const auto &p : pathPixels)
+                soundBuffer.push_back(mapFunc({ p }));
+        }
+        break;
 
         case TraversalType::REGION:
             collectRegion(pixels, w, h, soundBuffer);
@@ -224,7 +230,6 @@ Sonify::sonification() noexcept
         m_audioBuffer.insert(m_audioBuffer.end(), col.begin(), col.end());
 
     UnloadImageColors(pixels);
-    UnloadImage(image);
 }
 
 void
@@ -427,12 +432,6 @@ Sonify::collectCircleInwards(Color *pixels, int w, int h,
 }
 
 void
-Sonify::collectPath(Color *pixels, int w, int h,
-                    std::vector<std::vector<short>> &buffer) noexcept
-{
-}
-
-void
 Sonify::collectRegion(Color *pixels, int w, int h,
                       std::vector<std::vector<short>> &buffer) noexcept
 {
@@ -518,6 +517,7 @@ Sonify::updateCursorUpdater() noexcept
     switch (m_traversal_type)
     {
         case TraversalType::LEFT_TO_RIGHT:
+        {
             if (!m_li) m_li = new LineItem();
             m_li->setHeight(imgh);
             m_li->setPolarMode(false);
@@ -528,9 +528,11 @@ Sonify::updateCursorUpdater() noexcept
                     (float)audioPos / static_cast<float>(m_audioBuffer.size());
                 m_li->setPos({ progress * imgw + imgpos.x, imgpos.y });
             };
-            break;
+        }
+        break;
 
         case TraversalType::RIGHT_TO_LEFT:
+        {
             if (!m_li) m_li = new LineItem();
             m_li->setHeight(imgh);
             m_li->setPolarMode(false);
@@ -541,9 +543,11 @@ Sonify::updateCursorUpdater() noexcept
                     (float)audioPos / static_cast<float>(m_audioBuffer.size());
                 m_li->setPos({ imgpos.x + imgw - progress * imgw, imgpos.y });
             };
-            break;
+        }
+        break;
 
         case TraversalType::TOP_TO_BOTTOM:
+        {
             if (!m_li) m_li = new LineItem();
             m_li->setPolarMode(false);
             m_li->setWidth(imgw);
@@ -554,9 +558,11 @@ Sonify::updateCursorUpdater() noexcept
                     (float)audioPos / static_cast<float>(m_audioBuffer.size());
                 m_li->setPos({ imgpos.x, imgpos.y + progress * imgh });
             };
-            break;
+        }
+        break;
 
         case TraversalType::BOTTOM_TO_TOP:
+        {
             if (!m_li) m_li = new LineItem();
             m_li->setPolarMode(false);
             m_li->setWidth(imgw);
@@ -567,7 +573,9 @@ Sonify::updateCursorUpdater() noexcept
                     (float)audioPos / static_cast<float>(m_audioBuffer.size());
                 m_li->setPos({ imgpos.x, imgpos.y + imgh - progress * imgh });
             };
-            break;
+        }
+        break;
+
         case TraversalType::CIRCLE_INWARDS:
         {
             if (!m_ci) m_ci = new CircleItem();
@@ -584,6 +592,7 @@ Sonify::updateCursorUpdater() noexcept
             };
         }
         break;
+
         case TraversalType::CIRCLE_OUTWARDS:
         {
             if (!m_ci) m_ci = new CircleItem();
@@ -633,7 +642,54 @@ Sonify::updateCursorUpdater() noexcept
             };
         }
         break;
+
         case TraversalType::PATH:
+        {
+            if (!m_pi) m_pi = new PathItem();
+            auto pixels = m_pi->pixels();
+
+            m_cursorUpdater = [this, pixels](int audioPos)
+            {
+                const float progress =
+                    (float)audioPos / static_cast<float>(m_audioBuffer.size());
+                const Pixel &pixel = pixels.at(audioPos);
+                m_pi->setPointerPos({ pixel.x, pixel.y });
+            };
+        }
+        break;
+
         case TraversalType::REGION: break;
+    }
+}
+
+void
+Sonify::handleMouseEvents() noexcept
+{
+
+    if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
+    {
+        if (!m_pi) m_pi = new PathItem();
+
+        Vector2 mouse      = GetMousePosition();
+        Vector2 mouseWorld = GetScreenToWorld2D(mouse, m_camera);
+
+        const DVector2<int> &imgPos = m_texture->pos();
+        const int width             = m_texture->width();
+        const int height            = m_texture->height();
+
+        // check if inside image bounds
+        if (mouseWorld.x >= imgPos.x && mouseWorld.x < imgPos.x + width &&
+            mouseWorld.y >= imgPos.y && mouseWorld.y < imgPos.y + height)
+        {
+            // translate to image-local coords
+            int px = (int)(mouseWorld.x - imgPos.x);
+            int py = (int)(mouseWorld.y - imgPos.y);
+
+            // NOTE: GetImageColor expects uncompressed image in RAM
+            Color c = GetImageColor(m_image, px, py);
+
+            m_pi->appendPixel({ RGBA{ c.r, c.g, c.b, c.a }, (int)mouseWorld.x,
+                                (int)mouseWorld.y });
+        }
     }
 }

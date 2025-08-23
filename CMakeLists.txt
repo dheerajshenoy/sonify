@@ -10,6 +10,7 @@ set(SOURCES
   src/utils.cpp
   src/LineItem.cpp
   src/CircleItem.cpp
+  src/PathItem.cpp
 )
 
 set(HEADERS

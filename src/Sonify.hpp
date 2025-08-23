@@ -3,6 +3,7 @@
 #include "CircleItem.hpp"
 #include "DTexture.hpp"
 #include "LineItem.hpp"
+#include "PathItem.hpp"
 #include "Pixel.hpp"
 
 #include <fftw3.h>
@@ -29,6 +30,7 @@ private:
     void loop() noexcept;
     void render() noexcept;
     void handleMouseScroll() noexcept;
+    void handleMouseEvents() noexcept;
     void handleKeyEvents() noexcept;
     void toggleAudioPlayback() noexcept;
     void updateCursorUpdater() noexcept;
@@ -53,8 +55,6 @@ private:
     void collectCircleInwards(Color *pixels, int w, int h,
                               std::vector<std::vector<short>> &buffer) noexcept;
 
-    void collectPath(Color *pixels, int w, int h,
-                     std::vector<std::vector<short>> &buffer) noexcept;
     void collectRegion(Color *pixels, int w, int h,
                        std::vector<std::vector<short>> &buffer) noexcept;
 
@@ -80,15 +80,17 @@ private:
         REGION
     };
     DTexture *m_texture{ new DTexture() };
+    Image m_image;
     AudioStream m_stream;
     std::vector<short> m_audioBuffer;
     LineItem *m_li{ nullptr };
     CircleItem *m_ci{ nullptr };
+    PathItem *m_pi{ nullptr };
     bool m_finishedPlayback{ true }, m_audioPlaying{ false };
     int m_audioReadPos{ 0 };
     float m_zoom{ 1.0f };
 
-    TraversalType m_traversal_type{ 7 };
+    TraversalType m_traversal_type{ 0 };
     Camera2D m_camera;
 };
 
