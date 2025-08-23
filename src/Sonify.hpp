@@ -88,9 +88,8 @@ private:
     PathItem *m_pi{ nullptr };
     bool m_finishedPlayback{ true }, m_audioPlaying{ false };
     int m_audioReadPos{ 0 };
-    float m_zoom{ 1.0f };
 
-    TraversalType m_traversal_type{ 8 };
+    TraversalType m_traversal_type{ 0 };
     Camera2D m_camera;
 };
 
