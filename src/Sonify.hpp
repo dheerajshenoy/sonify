@@ -90,7 +90,7 @@ private:
     int m_audioReadPos{ 0 };
     float m_zoom{ 1.0f };
 
-    TraversalType m_traversal_type{ 0 };
+    TraversalType m_traversal_type{ 8 };
     Camera2D m_camera;
 };
 

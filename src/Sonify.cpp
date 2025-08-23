@@ -16,7 +16,7 @@ Sonify::Sonify() noexcept
 
     gInstance = this;
 
-    OpenImage("/home/neo/Downloads/300x300-061-e1340955308953.jpg");
+    OpenImage("/home/neo/Gits/sonifycpp/images/sonifycpp.png");
     InitAudioDevice();
     SetAudioStreamBufferSizeDefault(4096);
     m_stream = LoadAudioStream(44100, 16, 1);
@@ -90,7 +90,7 @@ Sonify::mapFunc(const std::vector<Pixel> &pixelColumn) noexcept
     for (const auto &px : pixelColumn)
     {
         HSV hsv = utils::RGBtoHSV(px.rgba);
-        f += mapper(0, 200, 0, 4000, hsv.h);
+        f += mapper(0, 200, 0, 4000, hsv.v);
     }
     utils::generateSineWave(fs, 0.5, f, 0.01, 44100);
     return fs;
@@ -217,7 +217,11 @@ Sonify::sonification() noexcept
         {
             const auto &pathPixels = m_pi->pixels();
             for (const auto &p : pathPixels)
-                soundBuffer.push_back(mapFunc({ p }));
+            {
+                std::vector<Pixel> pixelGroup(
+                    10, p); // Repeat pixel 10 times for more audio
+                soundBuffer.push_back(mapFunc(pixelGroup));
+            }
         }
         break;
 
@@ -650,9 +654,15 @@ Sonify::updateCursorUpdater() noexcept
 
             m_cursorUpdater = [this, pixels](int audioPos)
             {
+                if (pixels.empty()) return;
+
                 const float progress =
                     (float)audioPos / static_cast<float>(m_audioBuffer.size());
-                const Pixel &pixel = pixels.at(audioPos);
+                int pixelIndex = static_cast<int>(progress * pixels.size());
+                pixelIndex =
+                    std::min(pixelIndex, static_cast<int>(pixels.size() - 1));
+
+                const Pixel &pixel = pixels.at(pixelIndex);
                 m_pi->setPointerPos({ pixel.x, pixel.y });
             };
         }
