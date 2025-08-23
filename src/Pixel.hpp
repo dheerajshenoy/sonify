@@ -2,7 +2,7 @@
 
 typedef struct
 {
-    unsigned char r, g, b, a;
+    unsigned int r, g, b, a;
 } RGBA;
 
 typedef struct
