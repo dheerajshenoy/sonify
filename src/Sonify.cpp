@@ -8,25 +8,25 @@
 #include <print>
 #include <raylib.h>
 
-Sonify::Sonify() noexcept
+Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
 {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-    InitWindow(800, 600, "Sonify");
-    SetTargetFPS(60);
+    InitWindow(0, 0, "Sonify");
+    SetTargetFPS(m_fps);
 
     gInstance = this;
 
-    OpenImage("/home/neo/Gits/sonifycpp/images/sonifycpp.png");
     InitAudioDevice();
     SetAudioStreamBufferSizeDefault(4096);
-    m_stream = LoadAudioStream(44100, 16, 1);
-    SetAudioStreamCallback(m_stream, &Sonify::audioCallback);
+    setSamplerate(m_sampleRate);
 
     m_camera          = { 0 };
     m_camera.target   = { 0, 0 };
     m_camera.offset   = { 0, 0 };
     m_camera.rotation = 0.0f;
     m_camera.zoom     = 1.0f;
+    parse_args(args);
+
     loop();
 }
 
@@ -59,11 +59,17 @@ Sonify::loop() noexcept
 }
 
 void
-Sonify::OpenImage(const std::string &fileName) noexcept
+Sonify::OpenImage(std::string fileName) noexcept
 {
+    if (!fileName.empty() && fileName.at(0) == '~')
+    {
+        const char *home = std::getenv("HOME");
+        if (home) { fileName = std::string(home) + fileName.substr(1); }
+    }
+
     m_texture->load(fileName.c_str());
-    int x = GetScreenWidth() / 2 - m_texture->width() / 2;
-    int y = GetScreenHeight() / 2 - m_texture->height() / 2;
+    const int x = GetScreenWidth() / 2 - m_texture->width() / 2;
+    const int y = GetScreenHeight() / 2 - m_texture->height() / 2;
     m_texture->setPos({ x, y });
     m_image = LoadImageFromTexture(m_texture->texture());
 }
@@ -92,7 +98,7 @@ Sonify::mapFunc(const std::vector<Pixel> &pixelColumn) noexcept
         HSV hsv = utils::RGBtoHSV(px.rgba);
         f += mapper(0, 200, 0, 4000, hsv.v);
     }
-    utils::generateSineWave(fs, 0.5, f, 0.01, 44100);
+    utils::generateSineWave(fs, 0.5, f, 0.01, m_sampleRate);
     return fs;
 }
 
@@ -145,7 +151,7 @@ Sonify::handleKeyEvents() noexcept
     if (IsKeyDown(KEY_A)) m_camera.target.x -= panSpeed;
     if (IsKeyDown(KEY_D)) m_camera.target.x += panSpeed;
     if (IsKeyPressed(KEY_SPACE)) toggleAudioPlayback();
-
+    if (IsKeyPressed(KEY_ZERO)) recenterView();
     if (IsKeyPressed(KEY_J)) sonification();
 }
 
@@ -702,4 +708,37 @@ Sonify::handleMouseEvents() noexcept
                                 (int)mouseWorld.y });
         }
     }
+}
+
+void
+Sonify::parse_args(const argparse::ArgumentParser &args) noexcept
+{
+    if (args.is_used("--samplerate"))
+        setSamplerate(std::stoi(args.get("--samplerate")));
+
+    if (args.is_used("--fps")) m_fps = std::stoi(args.get("--fps"));
+
+    if (args.is_used("FILE")) { OpenImage(args.get("FILE")); }
+}
+
+void
+Sonify::setSamplerate(int SR) noexcept
+{
+    m_sampleRate = SR;
+    if (m_stream.processor)
+    {
+        StopAudioStream(m_stream);
+        UnloadAudioStream(m_stream);
+    }
+    m_stream = LoadAudioStream(m_sampleRate, 16, 1);
+    SetAudioStreamCallback(m_stream, &Sonify::audioCallback);
+}
+
+void
+Sonify::recenterView() noexcept
+{
+    m_camera.target   = { 0, 0 };
+    m_camera.offset   = { 0, 0 };
+    m_camera.rotation = 0.0f;
+    m_camera.zoom     = 1.0f;
 }

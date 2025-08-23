@@ -5,22 +5,24 @@
 #include "LineItem.hpp"
 #include "PathItem.hpp"
 #include "Pixel.hpp"
+#include "argparse.hpp"
 
 #include <fftw3.h>
 #include <functional>
 #include <raylib.h>
 #include <string>
 
-#define LOG(...) std::println(__VA_ARGS__);
+#define LOG(...)         std::println(__VA_ARGS__);
+#define __SONIFY_VERSION "0.1.0"
 
 class Sonify
 {
 public:
 
-    Sonify() noexcept;
+    Sonify(const argparse::ArgumentParser &) noexcept;
     ~Sonify() noexcept;
 
-    void OpenImage(const std::string &fileName) noexcept;
+    void OpenImage(std::string fileName) noexcept;
 
 private:
 
@@ -60,9 +62,13 @@ private:
 
     void collectAntiClockwise(Color *pixels, int w, int h,
                               std::vector<std::vector<short>> &buffer) noexcept;
+    void parse_args(const argparse::ArgumentParser &) noexcept;
 
     using CursorUpdater = std::function<void(int pos)>;
     CursorUpdater m_cursorUpdater;
+
+    void setSamplerate(int SR) noexcept;
+    void recenterView() noexcept;
 
 private:
 
@@ -88,7 +94,8 @@ private:
     PathItem *m_pi{ nullptr };
     bool m_finishedPlayback{ true }, m_audioPlaying{ false };
     int m_audioReadPos{ 0 };
-
+    int m_sampleRate{ 44100 };
+    int m_fps{ 60 };
     TraversalType m_traversal_type{ 0 };
     Camera2D m_camera;
 };
