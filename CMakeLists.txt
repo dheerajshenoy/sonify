@@ -21,6 +21,14 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 # Executable target
 # -----------------------------
 
+# Raylib build options
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(BUILD_GAMES OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_WAYLAND ON CACHE BOOL "" FORCE)
+
+
+add_subdirectory(external/raylib)
+
 set(SOURCES
   src/main.cpp
   src/Sonify.cpp
