@@ -36,44 +36,45 @@ private:
     void handleKeyEvents() noexcept;
     void toggleAudioPlayback() noexcept;
     void updateCursorUpdater() noexcept;
+    std::string replaceHome(const std::string_view &str) noexcept;
+
+    using AudioBuffer = std::vector<std::vector<short>>;
     void collectLeftToRight(Color *pixels, int w, int h,
-                            std::vector<std::vector<short>> &buffer) noexcept;
+                            AudioBuffer &buffer) noexcept;
 
     void collectRightToLeft(Color *pixels, int w, int h,
-                            std::vector<std::vector<short>> &buffer) noexcept;
+                            AudioBuffer &buffer) noexcept;
 
     void collectTopToBottom(Color *pixels, int w, int h,
-                            std::vector<std::vector<short>> &buffer) noexcept;
+                            AudioBuffer &buffer) noexcept;
 
     void collectBottomToTop(Color *pixels, int w, int h,
-                            std::vector<std::vector<short>> &buffer) noexcept;
+                            AudioBuffer &buffer) noexcept;
 
     void collectClockwise(Color *pixels, int w, int h,
-                          std::vector<std::vector<short>> &buffer) noexcept;
-    void
-    collectCircleOutwards(Color *pixels, int w, int h,
-                          std::vector<std::vector<short>> &buffer) noexcept;
+                          AudioBuffer &buffer) noexcept;
+
+    void collectCircleOutwards(Color *pixels, int w, int h,
+                               AudioBuffer &buffer) noexcept;
 
     void collectCircleInwards(Color *pixels, int w, int h,
-                              std::vector<std::vector<short>> &buffer) noexcept;
+                              AudioBuffer &buffer) noexcept;
 
     void collectRegion(Color *pixels, int w, int h,
-                       std::vector<std::vector<short>> &buffer) noexcept;
+                       AudioBuffer &buffer) noexcept;
 
     void collectAntiClockwise(Color *pixels, int w, int h,
-                              std::vector<std::vector<short>> &buffer) noexcept;
+                              AudioBuffer &buffer) noexcept;
     void parse_args(const argparse::ArgumentParser &) noexcept;
-
-    using CursorUpdater = std::function<void(int pos)>;
-    CursorUpdater m_cursorUpdater;
-
     void setSamplerate(int SR) noexcept;
     void recenterView() noexcept;
-
     void seekCursor(float seconds) noexcept;
+    void saveAudio(const std::string &fileName) noexcept;
 
 private:
 
+    using CursorUpdater = std::function<void(int pos)>;
+    CursorUpdater m_cursorUpdater;
     enum class TraversalType
     {
         LEFT_TO_RIGHT = 0,
@@ -89,8 +90,9 @@ private:
     };
     DTexture *m_texture{ new DTexture() };
     Image m_image;
-    AudioStream m_stream;
+    AudioStream m_stream{ 0 };
     std::vector<short> m_audioBuffer;
+    std::string m_saveFileName;
     LineItem *m_li{ nullptr };
     CircleItem *m_ci{ nullptr };
     PathItem *m_pi{ nullptr };

@@ -12,6 +12,8 @@ Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
 {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(0, 0, "Sonify");
+    m_screenW = GetScreenWidth();
+    m_screenH = GetScreenHeight();
     SetWindowMinSize(800, 600);
     SetTargetFPS(m_fps);
 
@@ -26,9 +28,8 @@ Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
     m_camera.offset   = { 0, 0 };
     m_camera.rotation = 0.0f;
     m_camera.zoom     = 1.0f;
-    parse_args(args);
 
-    loop();
+    parse_args(args);
 }
 
 Sonify::~Sonify() noexcept
@@ -42,8 +43,6 @@ void
 Sonify::loop() noexcept
 {
 
-    m_screenW = GetScreenWidth();
-    m_screenH = GetScreenHeight();
     while (!WindowShouldClose())
     {
         int newW = GetScreenWidth();
@@ -52,14 +51,15 @@ Sonify::loop() noexcept
         {
             m_screenW = newW;
             m_screenH = newH;
-
-            if (m_texture)
-            {
-                int x = m_screenW / 2 - m_texture->width() / 2;
-                int y = m_screenH / 2 - m_texture->height() / 2;
-                m_texture->setPos({ x, y });
-            }
         }
+        //
+        //     if (m_texture)
+        //     {
+        //         int x = m_screenW / 2 - m_texture->width() / 2;
+        //         int y = m_screenH / 2 - m_texture->height() / 2;
+        //         m_texture->setPos({ x, y });
+        //     }
+        // }
         if (m_traversal_type == TraversalType::PATH) handleMouseEvents();
         handleMouseScroll();
         handleKeyEvents();
@@ -93,11 +93,7 @@ Sonify::loop() noexcept
 void
 Sonify::OpenImage(std::string fileName) noexcept
 {
-    if (!fileName.empty() && fileName.at(0) == '~')
-    {
-        const char *home = std::getenv("HOME");
-        if (home) { fileName = std::string(home) + fileName.substr(1); }
-    }
+    if (!fileName.empty()) fileName = replaceHome(fileName);
 
     m_texture->load(fileName.c_str());
     const int x = m_screenW / 2 - m_texture->width() / 2;
@@ -220,7 +216,7 @@ Sonify::sonification() noexcept
     int h         = m_image.height;
     int w         = m_image.width;
 
-    std::vector<std::vector<short>> soundBuffer;
+    AudioBuffer soundBuffer;
     m_audioBuffer.clear();
 
     updateCursorUpdater();
@@ -286,7 +282,7 @@ Sonify::sonification() noexcept
 
 void
 Sonify::collectLeftToRight(Color *pixels, int w, int h,
-                           std::vector<std::vector<short>> &buffer) noexcept
+                           AudioBuffer &buffer) noexcept
 {
 
     std::vector<Pixel> pixelCol;
@@ -306,7 +302,7 @@ Sonify::collectLeftToRight(Color *pixels, int w, int h,
 
 void
 Sonify::collectRightToLeft(Color *pixels, int w, int h,
-                           std::vector<std::vector<short>> &buffer) noexcept
+                           AudioBuffer &buffer) noexcept
 {
 
     std::vector<Pixel> pixelCol;
@@ -326,7 +322,7 @@ Sonify::collectRightToLeft(Color *pixels, int w, int h,
 
 void
 Sonify::collectTopToBottom(Color *pixels, int w, int h,
-                           std::vector<std::vector<short>> &buffer) noexcept
+                           AudioBuffer &buffer) noexcept
 {
     std::vector<Pixel> pixelCol;
     pixelCol.reserve(h);
@@ -345,7 +341,7 @@ Sonify::collectTopToBottom(Color *pixels, int w, int h,
 
 void
 Sonify::collectBottomToTop(Color *pixels, int w, int h,
-                           std::vector<std::vector<short>> &buffer) noexcept
+                           AudioBuffer &buffer) noexcept
 {
     std::vector<Pixel> pixelCol;
     pixelCol.reserve(h);
@@ -364,7 +360,7 @@ Sonify::collectBottomToTop(Color *pixels, int w, int h,
 
 void
 Sonify::collectCircleOutwards(Color *pixels, int w, int h,
-                              std::vector<std::vector<short>> &buffer) noexcept
+                              AudioBuffer &buffer) noexcept
 {
     int cx = w / 2;
     int cy = h / 2;
@@ -425,7 +421,7 @@ Sonify::collectCircleOutwards(Color *pixels, int w, int h,
 
 void
 Sonify::collectCircleInwards(Color *pixels, int w, int h,
-                             std::vector<std::vector<short>> &buffer) noexcept
+                             AudioBuffer &buffer) noexcept
 {
     int left   = 0;
     int right  = w - 1;
@@ -484,14 +480,13 @@ Sonify::collectCircleInwards(Color *pixels, int w, int h,
 }
 
 void
-Sonify::collectRegion(Color *pixels, int w, int h,
-                      std::vector<std::vector<short>> &buffer) noexcept
+Sonify::collectRegion(Color *pixels, int w, int h, AudioBuffer &buffer) noexcept
 {
 }
 
 void
 Sonify::collectAntiClockwise(Color *pixels, int w, int h,
-                             std::vector<std::vector<short>> &buffer) noexcept
+                             AudioBuffer &buffer) noexcept
 {
     int cx     = w / 2;
     int cy     = h / 2;
@@ -526,7 +521,7 @@ Sonify::collectAntiClockwise(Color *pixels, int w, int h,
 
 void
 Sonify::collectClockwise(Color *pixels, int w, int h,
-                         std::vector<std::vector<short>> &buffer) noexcept
+                         AudioBuffer &buffer) noexcept
 {
     int cx     = w / 2;
     int cy     = h / 2;
@@ -667,7 +662,7 @@ Sonify::updateCursorUpdater() noexcept
         {
             if (!m_li) m_li = new LineItem();
             m_li->setPolarMode(true);
-            m_li->setHeight(1);
+            m_li->setHeight(5);
             m_li->setWidth(imgw);
             m_li->setPos({ imgpos.x + imgw, imgpos.y + imgh / 2 });
             m_cursorUpdater = [this](int audioPos)
@@ -756,18 +751,27 @@ void
 Sonify::parse_args(const argparse::ArgumentParser &args) noexcept
 {
     if (args.is_used("--samplerate"))
-        setSamplerate(std::stoi(args.get("--samplerate")));
+        setSamplerate(args.get<int>("--samplerate"));
 
+    // if (args.is_used("--channels"))
+    //     setChannels(std::stoi(args.get("--channels")));
+
+    if (args.is_used("--traversal"))
+        m_traversal_type =
+            static_cast<TraversalType>(args.get<int>("--traversal"));
+
+    LOG("{}", static_cast<int>(m_traversal_type));
     if (args.is_used("--fps")) m_fps = std::stoi(args.get("--fps"));
-
     if (args.is_used("FILE")) { OpenImage(args.get("FILE")); }
+
+    loop();
 }
 
 void
 Sonify::setSamplerate(int SR) noexcept
 {
     m_sampleRate = SR;
-    if (m_stream.processor)
+    if (IsAudioStreamValid(m_stream))
     {
         StopAudioStream(m_stream);
         UnloadAudioStream(m_stream);
@@ -800,4 +804,32 @@ Sonify::seekCursor(float seconds) noexcept
 
     m_audioReadPos = static_cast<size_t>(newPos);
     m_cursorUpdater(m_audioReadPos);
+}
+
+void
+Sonify::saveAudio(const std::string &fileName) noexcept
+{
+    if (!m_isSonified || m_audioBuffer.empty() || fileName.empty()) return;
+
+    Wave wave = { .frameCount = static_cast<unsigned int>(m_audioBuffer.size() /
+                                                          m_channels),
+                  .sampleRate = m_sampleRate,
+                  .sampleSize = 16,
+                  .channels   = m_channels,
+                  .data       = (void *)m_audioBuffer.data() };
+    const std::string &path = replaceHome(fileName);
+    if (!ExportWave(wave, fileName.c_str()))
+    {
+        std::cerr << "Unable to export wave";
+    }
+}
+
+std::string
+Sonify::replaceHome(const std::string_view &str) noexcept
+{
+    if (!str.empty() && str.front() == '~')
+    {
+        return std::string(std::getenv("HOME")) + std::string(str.substr(1));
+    }
+    return std::string(str);
 }
