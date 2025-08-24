@@ -26,6 +26,10 @@ init_args(argparse::ArgumentParser &args)
     // args.add_argument("-t").scan<'i', int>().help(
     //     "ID of the traversal to be used");
 
+    args.add_argument("--background")
+        .scan<'i', unsigned int>()
+        .help("Background color");
+
     args.add_argument("--pixelmap")
         .help("Name of the pixel mapping to be used");
 
