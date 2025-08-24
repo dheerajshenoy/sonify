@@ -4,12 +4,14 @@
 #include "DTexture.hpp"
 #include "LineItem.hpp"
 #include "PathItem.hpp"
+#include "PixelMapManager.hpp"
 #include "argparse.hpp"
 #include "raylib.h"
 #include "sonify/Pixel.hpp"
 
 #include <fftw3.h>
 #include <functional>
+#include <print>
 #include <string>
 
 #define LOG(...)         std::println(__VA_ARGS__);
@@ -70,6 +72,27 @@ private:
     void recenterView() noexcept;
     void seekCursor(float seconds) noexcept;
     void saveAudio(const std::string &fileName) noexcept;
+    void loadUserPixelMappings() noexcept;
+    void loadPixelMappingsSharedObjects(const std::string &dir) noexcept;
+    constexpr Color ColorFromHex(unsigned int hex) noexcept
+    {
+        Color c;
+        if (hex <= 0xFFFFFF) // RRGGBB
+        {
+            c.r = (hex >> 16) & 0xFF;
+            c.g = (hex >> 8) & 0xFF;
+            c.b = (hex) & 0xFF;
+            c.a = 255;
+        }
+        else // RRGGBBAA
+        {
+            c.r = (hex >> 24) & 0xFF;
+            c.g = (hex >> 16) & 0xFF;
+            c.b = (hex >> 8) & 0xFF;
+            c.a = (hex) & 0xFF;
+        }
+        return c;
+    }
 
 private:
 
@@ -106,6 +129,8 @@ private:
     TraversalType m_traversal_type{ 0 };
     Camera2D m_camera;
     int m_screenW, m_screenH;
+    PixelMapManager *m_pixelMapManager{ nullptr };
+    Color m_bg{ ColorFromHex(0x000000) };
 };
 
 static Sonify *gInstance{ nullptr };

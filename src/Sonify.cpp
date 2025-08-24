@@ -1,12 +1,15 @@
 #include "Sonify.hpp"
 
+#include "PixelMapManager.hpp"
 #include "raylib.h"
 #include "sonify/utils.hpp"
 
 #include <cmath>
 #include <cstring>
+#include <dlfcn.h>
+#include <filesystem>
 #include <functional>
-#include <print>
+#include <type_traits>
 
 Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
 {
@@ -29,7 +32,9 @@ Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
     m_camera.rotation = 0.0f;
     m_camera.zoom     = 1.0f;
 
+    loadUserPixelMappings();
     parse_args(args);
+    loop();
 }
 
 Sonify::~Sonify() noexcept
@@ -68,7 +73,7 @@ Sonify::loop() noexcept
         BeginDrawing();
         {
 
-            ClearBackground(WHITE);
+            ClearBackground(m_bg);
 
             BeginMode2D(m_camera);
 
@@ -760,11 +765,11 @@ Sonify::parse_args(const argparse::ArgumentParser &args) noexcept
         m_traversal_type =
             static_cast<TraversalType>(args.get<int>("--traversal"));
 
-    LOG("{}", static_cast<int>(m_traversal_type));
+    if (args.is_used("--background"))
+        m_bg = ColorFromHex(args.get<unsigned int>("--background"));
+
     if (args.is_used("--fps")) m_fps = std::stoi(args.get("--fps"));
     if (args.is_used("FILE")) { OpenImage(args.get("FILE")); }
-
-    loop();
 }
 
 void
@@ -832,4 +837,51 @@ Sonify::replaceHome(const std::string_view &str) noexcept
         return std::string(std::getenv("HOME")) + std::string(str.substr(1));
     }
     return std::string(str);
+}
+
+// load all the user defined pixel mappings
+void
+Sonify::loadUserPixelMappings() noexcept
+{
+    m_pixelMapManager = new PixelMapManager();
+
+    namespace fs = std::filesystem;
+    const std::string &config_dir =
+        std::getenv("HOME") + std::string("/.config/sonify");
+
+    if (!fs::exists(config_dir))
+        fs::create_directory(config_dir);
+    else
+    {
+        // load mappings
+        const std::string &mappings_dir = config_dir + "/mappings";
+        if (fs::exists(mappings_dir))
+            loadPixelMappingsSharedObjects(mappings_dir);
+    }
+}
+
+void
+Sonify::loadPixelMappingsSharedObjects(const std::string &dir) noexcept
+{
+    namespace fs = std::filesystem;
+    for (const auto &entry : fs::directory_iterator(dir))
+    {
+        if (entry.is_regular_file() && entry.path().extension() == ".so")
+        {
+            void *handle = dlopen(entry.path().c_str(), RTLD_LAZY);
+
+            if (handle)
+            {
+                MapTemplate *m =
+                    reinterpret_cast<MapTemplate *>(dlsym(handle, "create"));
+                if (!m)
+                {
+                    TraceLog(LOG_WARNING, dlerror());
+                    dlclose(handle);
+                    continue;
+                }
+                m_pixelMapManager->addMap({ handle, m });
+            }
+        }
+    }
 }
