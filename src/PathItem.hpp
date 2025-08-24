@@ -1,11 +1,11 @@
 #pragma once
 
 #include "DVector2.hpp"
+#include "raylib.h"
 #include "sonify/Pixel.hpp"
 
 #include <functional>
 #include <print>
-#include <raylib.h>
 
 class PathItem
 {

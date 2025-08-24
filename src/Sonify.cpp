@@ -1,17 +1,18 @@
 #include "Sonify.hpp"
 
+#include "raylib.h"
 #include "sonify/utils.hpp"
 
 #include <cmath>
 #include <cstring>
 #include <functional>
 #include <print>
-#include <raylib.h>
 
 Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
 {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(0, 0, "Sonify");
+    SetWindowMinSize(800, 600);
     SetTargetFPS(m_fps);
 
     gInstance = this;
@@ -68,10 +69,22 @@ Sonify::loop() noexcept
         {
 
             ClearBackground(WHITE);
+
             BeginMode2D(m_camera);
 
             render();
             EndMode2D();
+            if (m_showNotSonifiedMessage)
+            {
+                m_showNotSonifiedMessageTimer -= GetFrameTime();
+                if (m_showNotSonifiedMessageTimer <= 0.0f)
+                {
+                    m_showNotSonifiedMessage      = false;
+                    m_showNotSonifiedMessageTimer = 1.5f;
+                }
+
+                DrawText("Press `J` to sonify first", 10, 10, 20, RED);
+            }
         }
         EndDrawing();
     }
@@ -96,6 +109,7 @@ Sonify::OpenImage(std::string fileName) noexcept
 void
 Sonify::render() noexcept
 {
+
     m_texture->render();
     if (m_li) m_li->render();
     if (m_ci) m_ci->render();
@@ -187,6 +201,11 @@ Sonify::toggleAudioPlayback() noexcept
     }
     else
     {
+        if (!m_isSonified)
+        {
+            m_showNotSonifiedMessage = true;
+            return;
+        }
         if (m_audioReadPos >= m_audioBuffer.size()) { m_audioReadPos = 0; }
 
         PlayAudioStream(m_stream);
@@ -260,7 +279,9 @@ Sonify::sonification() noexcept
     for (auto &col : soundBuffer)
         m_audioBuffer.insert(m_audioBuffer.end(), col.begin(), col.end());
 
+    if (m_cursorUpdater) m_cursorUpdater(0);
     UnloadImageColors(pixels);
+    m_isSonified = true;
 }
 
 void
@@ -552,7 +573,7 @@ Sonify::updateCursorUpdater() noexcept
             if (!m_li) m_li = new LineItem();
             m_li->setHeight(imgh);
             m_li->setPolarMode(false);
-            m_li->setWidth(1);
+            m_li->setWidth(10);
             m_cursorUpdater = [this, imgw, imgpos](int audioPos)
             {
                 float progress =

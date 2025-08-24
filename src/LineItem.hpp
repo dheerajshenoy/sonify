@@ -1,9 +1,9 @@
 #pragma once
 
 #include "DVector2.hpp"
+#include "raylib.h"
 
 #include <functional>
-#include <raylib.h>
 
 class LineItem
 {

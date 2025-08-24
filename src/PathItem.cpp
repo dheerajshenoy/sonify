@@ -1,6 +1,6 @@
 #include "PathItem.hpp"
 
-#include <raylib.h>
+#include "raylib.h"
 
 void
 PathItem::render() noexcept

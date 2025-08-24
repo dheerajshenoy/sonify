@@ -5,11 +5,11 @@
 #include "LineItem.hpp"
 #include "PathItem.hpp"
 #include "argparse.hpp"
+#include "raylib.h"
 #include "sonify/Pixel.hpp"
 
 #include <fftw3.h>
 #include <functional>
-#include <raylib.h>
 #include <string>
 
 #define LOG(...)         std::println(__VA_ARGS__);
@@ -94,7 +94,9 @@ private:
     LineItem *m_li{ nullptr };
     CircleItem *m_ci{ nullptr };
     PathItem *m_pi{ nullptr };
-    bool m_finishedPlayback{ true }, m_audioPlaying{ false };
+    bool m_finishedPlayback{ true }, m_audioPlaying{ false },
+        m_isSonified{ false }, m_showNotSonifiedMessage{ false };
+    float m_showNotSonifiedMessageTimer{ 1.5f };
     int m_audioReadPos{ 0 };
     int m_sampleRate{ 44100 };
     int m_channels{ 1 };
