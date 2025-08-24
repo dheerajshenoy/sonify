@@ -37,6 +37,7 @@ set(SOURCES
   src/LineItem.cpp
   src/CircleItem.cpp
   src/PathItem.cpp
+  src/PixelMapManager.cpp
 )
 
 set(HEADERS
