@@ -12,14 +12,16 @@ PixelMapManager::~PixelMapManager() noexcept
     }
 }
 
-sonify::MapFunc
-PixelMapManager::getMapFunc(const char *mapName) const noexcept
+MapTemplate *
+PixelMapManager::getMapTemplate(const char *mapName) const noexcept
 {
     if (m_mappings.empty()) return nullptr;
 
-    auto _ = std::find_if(m_mappings.cbegin(), m_mappings.cend(),
-                          [this, mapName](const PixelMap &p) -> bool
-    { return p.map->name() == mapName; });
+    auto it = std::find_if(m_mappings.cbegin(), m_mappings.cend(),
+                           [&mapName](const PixelMap &p) -> bool
+    { return p.map && p.map->name() == mapName; });
+
+    if (it != m_mappings.end()) return it->map;
 
     return nullptr;
 }
