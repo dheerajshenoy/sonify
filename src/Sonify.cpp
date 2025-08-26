@@ -238,12 +238,17 @@ Sonify::sonification() noexcept
 
     updateCursorUpdater();
 
+    LOG("{}", m_pixelMapName);
     MapTemplate *t = m_pixelMapManager->getMapTemplate(m_pixelMapName.c_str());
+
     if (!t)
     {
         TraceLog(LOG_FATAL, "Unable to find MapTemplate!");
         return;
     }
+
+    m_mapFunc = [&t](const std::vector<Pixel> &pixels) -> std::vector<short>
+    { return t->mapping(pixels); };
 
     // TODO: Set properties in t
 
