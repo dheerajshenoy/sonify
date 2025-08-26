@@ -16,10 +16,11 @@ Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
 {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(0, 0, "Sonify");
+    SetTargetFPS(m_fps);
+    SetWindowMinSize(800, 600);
+
     m_screenW = GetScreenWidth();
     m_screenH = GetScreenHeight();
-    SetWindowMinSize(800, 600);
-    SetTargetFPS(m_fps);
     m_font = LoadFontEx(m_config.font_family.c_str(), m_config.font_size, 0, 0);
     gInstance = this;
 
@@ -53,6 +54,7 @@ Sonify::loop() noexcept
 
     while (!WindowShouldClose())
     {
+        m_timer.update();
         int newW = GetScreenWidth();
         int newH = GetScreenHeight();
         if (newW != m_screenW || newH != m_screenH)
@@ -953,6 +955,12 @@ Sonify::handleFileDrop() noexcept
         {
             m_dragDropText      = "Invalid File!";
             m_dragDropTextColor = RED;
+            // fires once after 2s
+            m_timer.singleShot(2.0f, [this]()
+            {
+                m_dragDropText      = "Drop an image file here to sonify";
+                m_dragDropTextColor = DARKGRAY;
+            });
         }
     }
 

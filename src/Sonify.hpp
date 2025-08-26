@@ -6,6 +6,7 @@
 #include "LineItem.hpp"
 #include "PathItem.hpp"
 #include "PixelMapManager.hpp"
+#include "Timer.hpp"
 #include "argparse.hpp"
 #include "raylib.h"
 #include "sonify/DefaultPixelMappings/HSVMap.hpp"
@@ -147,11 +148,12 @@ private:
     int m_screenW, m_screenH;
     PixelMapManager *m_pixelMapManager{ nullptr };
     Color m_bg{ ColorFromHex(0x000000) };
-    std::string m_dragDropText{ "Drop image file here" };
-    Color m_dragDropTextColor{ WHITE };
+    std::string m_dragDropText{ "Drop an image file here to sonify" };
+    Color m_dragDropTextColor{ DARKGRAY };
 
     Config m_config;
     Font m_font;
+    Timer m_timer;
 };
 
 static Sonify *gInstance{ nullptr };
