@@ -1,6 +1,7 @@
 #include "PixelMapManager.hpp"
 
 #include <algorithm>
+#include <cstring>
 #include <dlfcn.h>
 
 PixelMapManager::~PixelMapManager() noexcept
@@ -19,7 +20,7 @@ PixelMapManager::getMapTemplate(const char *mapName) const noexcept
 
     auto it = std::find_if(m_mappings.cbegin(), m_mappings.cend(),
                            [&mapName](const PixelMap &p) -> bool
-    { return p.map && p.map->name() == mapName; });
+    { return p.map && std::strcmp(p.map->name(), mapName) == 0; });
 
     if (it != m_mappings.end()) return it->map;
 
