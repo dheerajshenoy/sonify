@@ -238,7 +238,6 @@ Sonify::sonification() noexcept
 
     updateCursorUpdater();
 
-    LOG("{}", m_pixelMapName);
     MapTemplate *t = m_pixelMapManager->getMapTemplate(m_pixelMapName.c_str());
 
     if (!t)
