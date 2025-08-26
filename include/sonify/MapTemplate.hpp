@@ -16,6 +16,11 @@ public:
     virtual const char *name() const                               = 0;
     virtual std::vector<short> mapping(const std::vector<Pixel> &) = 0;
 
+    inline int minFreq() const noexcept { return _min_freq; }
+    inline int maxFreq() const noexcept { return _max_freq; }
+    inline int sampleRate() const noexcept { return _sample_rate; }
+    inline FreqMapFunc freqMapper() const noexcept { return freq_map; }
+
     inline void setMinFreq(int f) noexcept { _min_freq = f; }
     inline void setMaxFreq(int f) noexcept { _max_freq = f; }
     inline void setSampleRate(int f) noexcept { _sample_rate = f; }
