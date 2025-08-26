@@ -19,7 +19,7 @@ namespace utils
     // ------- Signal generation -------
     void generateSineWave(std::vector<short> &buffer, double amplitude,
                           double frequency, double time,
-                          float samplerate) noexcept;
+                          int samplerate) noexcept;
     std::vector<short> sineWave(double _amplitude, double frequency,
                                 double time, float samplerate) noexcept;
     void applyEnvelope(std::vector<short> &samples) noexcept;
