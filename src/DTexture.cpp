@@ -1,14 +1,17 @@
 #include "DTexture.hpp"
 
+#include "raylib.h"
+
 DTexture::~DTexture()
 {
     UnloadTexture(m_texture);
 }
 
-void
+bool
 DTexture::load(const char *filename) noexcept
 {
     m_texture = LoadTexture(filename);
+    return IsTextureValid(m_texture);
 }
 
 void

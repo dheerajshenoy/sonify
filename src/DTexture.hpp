@@ -16,7 +16,7 @@ public:
     inline int width() const noexcept { return m_texture.width; }
     inline int height() const noexcept { return m_texture.height; }
     void render() noexcept;
-    void load(const char *filename) noexcept;
+    bool load(const char *filename) noexcept;
     Texture2D texture() const noexcept { return m_texture; }
     inline void setPos(const DVector2<int> &pos) noexcept { m_pos = pos; }
     auto pos() const noexcept -> decltype(m_pos) { return m_pos; }
