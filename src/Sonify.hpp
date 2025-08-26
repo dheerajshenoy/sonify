@@ -1,12 +1,15 @@
 #pragma once
 
 #include "CircleItem.hpp"
+#include "Config.hpp"
 #include "DTexture.hpp"
 #include "LineItem.hpp"
 #include "PathItem.hpp"
 #include "PixelMapManager.hpp"
 #include "argparse.hpp"
 #include "raylib.h"
+#include "sonify/DefaultPixelMappings/HSVMap.hpp"
+#include "sonify/DefaultPixelMappings/IntensityMap.hpp"
 #include "sonify/Pixel.hpp"
 
 #include <fftw3.h>
@@ -24,12 +27,12 @@ public:
     Sonify(const argparse::ArgumentParser &) noexcept;
     ~Sonify() noexcept;
 
-    void OpenImage(std::string fileName) noexcept;
+    bool OpenImage(std::string fileName) noexcept;
 
 private:
 
     static void audioCallback(void *bufferData, unsigned int frames);
-    std::vector<short> mapFunc(const std::vector<Pixel> &) noexcept;
+
     void sonification() noexcept;
     void loop() noexcept;
     void render() noexcept;
@@ -70,10 +73,12 @@ private:
     void parse_args(const argparse::ArgumentParser &) noexcept;
     void setSamplerate(int SR) noexcept;
     void recenterView() noexcept;
+    void centerImage() noexcept;
     void seekCursor(float seconds) noexcept;
     void saveAudio(const std::string &fileName) noexcept;
     void loadUserPixelMappings() noexcept;
     void loadPixelMappingsSharedObjects(const std::string &dir) noexcept;
+    void loadDefaultPixelMappings() noexcept;
     constexpr Color ColorFromHex(unsigned int hex) noexcept
     {
         Color c;
@@ -93,9 +98,14 @@ private:
         }
         return c;
     }
+    void showDragDropText() noexcept;
+    void handleFileDrop() noexcept;
 
 private:
 
+    using PixelMapFunc =
+        std::function<std::vector<short>(const std::vector<Pixel> &)>;
+    PixelMapFunc m_mapFunc;
     using CursorUpdater = std::function<void(int pos)>;
     CursorUpdater m_cursorUpdater;
     enum class TraversalType
@@ -116,11 +126,17 @@ private:
     AudioStream m_stream{ 0 };
     std::vector<short> m_audioBuffer;
     std::string m_saveFileName;
+    std::string m_pixelMapName{ "Intensity" };
     LineItem *m_li{ nullptr };
     CircleItem *m_ci{ nullptr };
     PathItem *m_pi{ nullptr };
-    bool m_finishedPlayback{ true }, m_audioPlaying{ false },
-        m_isSonified{ false }, m_showNotSonifiedMessage{ false };
+
+    bool m_finishedPlayback{ true };
+    bool m_audioPlaying{ false };
+    bool m_isSonified{ false };
+    bool m_showNotSonifiedMessage{ false };
+    bool m_showDragDropText{ true };
+
     float m_showNotSonifiedMessageTimer{ 1.5f };
     int m_audioReadPos{ 0 };
     int m_sampleRate{ 44100 };
@@ -131,6 +147,11 @@ private:
     int m_screenW, m_screenH;
     PixelMapManager *m_pixelMapManager{ nullptr };
     Color m_bg{ ColorFromHex(0x000000) };
+    std::string m_dragDropText{ "Drop image file here" };
+    Color m_dragDropTextColor{ WHITE };
+
+    Config m_config;
+    Font m_font;
 };
 
 static Sonify *gInstance{ nullptr };

@@ -2,6 +2,7 @@
 
 #include "PixelMapManager.hpp"
 #include "raylib.h"
+#include "sonify/DefaultPixelMappings/IntensityMap.hpp"
 #include "sonify/utils.hpp"
 
 #include <cmath>
@@ -19,7 +20,7 @@ Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
     m_screenH = GetScreenHeight();
     SetWindowMinSize(800, 600);
     SetTargetFPS(m_fps);
-
+    m_font = LoadFontEx(m_config.font_family.c_str(), m_config.font_size, 0, 0);
     gInstance = this;
 
     InitAudioDevice();
@@ -32,6 +33,7 @@ Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
     m_camera.rotation = 0.0f;
     m_camera.zoom     = 1.0f;
 
+    loadDefaultPixelMappings();
     loadUserPixelMappings();
     parse_args(args);
     loop();
@@ -42,6 +44,7 @@ Sonify::~Sonify() noexcept
     CloseAudioDevice();
     StopAudioStream(m_stream);
     UnloadAudioStream(m_stream);
+    UnloadFont(m_font);
 }
 
 void
@@ -72,11 +75,10 @@ Sonify::loop() noexcept
 
         BeginDrawing();
         {
-
             ClearBackground(m_bg);
-
+            if (IsFileDropped()) handleFileDrop();
+            if (m_showDragDropText) showDragDropText();
             BeginMode2D(m_camera);
-
             render();
             EndMode2D();
             if (m_showNotSonifiedMessage)
@@ -95,46 +97,56 @@ Sonify::loop() noexcept
     }
 }
 
-void
+bool
 Sonify::OpenImage(std::string fileName) noexcept
 {
+    if (IsImageValid(m_image)) UnloadImage(m_image);
+    if (IsTextureValid(m_texture->texture()))
+        UnloadTexture(m_texture->texture());
     if (!fileName.empty()) fileName = replaceHome(fileName);
 
-    m_texture->load(fileName.c_str());
-    const int x = m_screenW / 2 - m_texture->width() / 2;
-    const int y = m_screenH / 2 - m_texture->height() / 2;
-    m_texture->setPos({ x, y });
-    m_image = LoadImageFromTexture(m_texture->texture());
+    if (m_texture->load(fileName.c_str()))
+    {
+        const int x = m_screenW / 2 - m_texture->width() / 2;
+        const int y = m_screenH / 2 - m_texture->height() / 2;
+        m_texture->setPos({ x, y });
+        m_image            = LoadImageFromTexture(m_texture->texture());
+        m_showDragDropText = false;
+        centerImage();
+        recenterView();
+        return true;
+    }
+
+    return false;
 }
 
 void
 Sonify::render() noexcept
 {
-
     m_texture->render();
     if (m_li) m_li->render();
     if (m_ci) m_ci->render();
     if (m_pi) m_pi->render();
 }
 
-std::vector<short>
-Sonify::mapFunc(const std::vector<Pixel> &pixelColumn) noexcept
-{
-    using freqMapFunc =
-        std::function<double(double, double, double, double, double)>;
-    freqMapFunc mapper = utils::LogMap;
-
-    std::vector<short> fs;
-    double f = 0;
-
-    for (const auto &px : pixelColumn)
-    {
-        HSV hsv = utils::RGBtoHSV(px.rgba);
-        f += mapper(0, 200, 0, 4000, hsv.v);
-    }
-    utils::generateSineWave(fs, 0.5, f, 0.01, m_sampleRate);
-    return fs;
-}
+// std::vector<short>
+// Sonify::mapFunc(const std::vector<Pixel> &pixelColumn) noexcept
+// {
+//     using freqMapFunc =
+//         std::function<double(double, double, double, double, double)>;
+//     freqMapFunc mapper = utils::LogMap;
+//
+//     std::vector<short> fs;
+//     double f = 0;
+//
+//     for (const auto &px : pixelColumn)
+//     {
+//         HSV hsv = utils::RGBtoHSV(px.rgba);
+//         f += mapper(0, 200, 0, 4000, hsv.v);
+//     }
+//     utils::generateSineWave(fs, 0.5, f, 0.01, m_sampleRate);
+//     return fs;
+// }
 
 void
 Sonify::audioCallback(void *buffer, unsigned int frames)
@@ -226,6 +238,21 @@ Sonify::sonification() noexcept
 
     updateCursorUpdater();
 
+    MapTemplate *t = m_pixelMapManager->getMapTemplate(m_pixelMapName.c_str());
+    if (!t)
+    {
+        TraceLog(LOG_FATAL, "Unable to find MapTemplate!");
+        return;
+    }
+
+    // TODO: Set properties in t
+
+    if (!m_mapFunc)
+    {
+        TraceLog(LOG_FATAL, "Unable to find valid pixel mapping function");
+        return;
+    }
+
     switch (m_traversal_type)
     {
         case TraversalType::LEFT_TO_RIGHT:
@@ -267,7 +294,7 @@ Sonify::sonification() noexcept
             {
                 std::vector<Pixel> pixelGroup(
                     10, p); // Repeat pixel 10 times for more audio
-                soundBuffer.push_back(mapFunc(pixelGroup));
+                soundBuffer.push_back(m_mapFunc(pixelGroup));
             }
         }
         break;
@@ -301,7 +328,7 @@ Sonify::collectLeftToRight(Color *pixels, int w, int h,
             const auto &px = pixels[y * w + x];
             pixelCol.push_back({ RGBA{ px.r, px.g, px.b, px.a }, x, y });
         }
-        buffer.push_back(mapFunc(pixelCol));
+        buffer.push_back(m_mapFunc(pixelCol));
     }
 }
 
@@ -321,7 +348,7 @@ Sonify::collectRightToLeft(Color *pixels, int w, int h,
             const auto &px = pixels[y * w + x];
             pixelCol.push_back({ RGBA{ px.r, px.g, px.b, px.a }, x, y });
         }
-        buffer.push_back(mapFunc(pixelCol));
+        buffer.push_back(m_mapFunc(pixelCol));
     }
 }
 
@@ -340,7 +367,7 @@ Sonify::collectTopToBottom(Color *pixels, int w, int h,
             const auto &px = pixels[y * w + x];
             pixelCol.push_back({ RGBA{ px.r, px.g, px.b, px.a }, x, y });
         }
-        buffer.push_back(mapFunc(pixelCol));
+        buffer.push_back(m_mapFunc(pixelCol));
     }
 }
 
@@ -359,7 +386,7 @@ Sonify::collectBottomToTop(Color *pixels, int w, int h,
             const auto &px = pixels[y * w + x];
             pixelCol.push_back({ RGBA{ px.r, px.g, px.b, px.a }, x, y });
         }
-        buffer.push_back(mapFunc(pixelCol));
+        buffer.push_back(m_mapFunc(pixelCol));
     }
 }
 
@@ -420,7 +447,7 @@ Sonify::collectCircleOutwards(Color *pixels, int w, int h,
             }
         }
 
-        if (!pixelCol.empty()) buffer.push_back(mapFunc(pixelCol));
+        if (!pixelCol.empty()) buffer.push_back(m_mapFunc(pixelCol));
     }
 }
 
@@ -474,7 +501,7 @@ Sonify::collectCircleInwards(Color *pixels, int w, int h,
             }
         }
 
-        buffer.push_back(mapFunc(pixelCol));
+        buffer.push_back(m_mapFunc(pixelCol));
 
         // Move to inner circle
         left++;
@@ -520,7 +547,7 @@ Sonify::collectAntiClockwise(Color *pixels, int w, int h,
             else { break; }
         }
 
-        buffer.push_back(mapFunc(pixelCol));
+        buffer.push_back(m_mapFunc(pixelCol));
     }
 }
 
@@ -555,7 +582,7 @@ Sonify::collectClockwise(Color *pixels, int w, int h,
             else { break; }
         }
 
-        buffer.push_back(mapFunc(pixelCol));
+        buffer.push_back(m_mapFunc(pixelCol));
     }
 }
 
@@ -788,16 +815,17 @@ Sonify::setSamplerate(int SR) noexcept
 void
 Sonify::recenterView() noexcept
 {
-    m_camera.target   = { 0, 0 };
-    m_camera.offset   = { 0, 0 };
     m_camera.rotation = 0.0f;
+    m_camera.target   = { 0.0f, 0.0f };
+    m_camera.offset   = (Vector2){ m_screenW * 0.5f, m_screenH * 0.5f };
     m_camera.zoom     = 1.0f;
 }
 
 void
 Sonify::seekCursor(float seconds) noexcept
 {
-    // samples per second (mono = sampleRate * 1, stereo = sampleRate * 2, etc.)
+    // samples per second (mono = sampleRate * 1, stereo = sampleRate * 2,
+    // etc.)
     size_t samplesPerSecond = m_sampleRate * m_channels;
 
     long long offset = static_cast<long long>(seconds * samplesPerSecond);
@@ -843,7 +871,6 @@ Sonify::replaceHome(const std::string_view &str) noexcept
 void
 Sonify::loadUserPixelMappings() noexcept
 {
-    m_pixelMapManager = new PixelMapManager();
 
     namespace fs = std::filesystem;
     const std::string &config_dir =
@@ -884,4 +911,54 @@ Sonify::loadPixelMappingsSharedObjects(const std::string &dir) noexcept
             }
         }
     }
+}
+
+void
+Sonify::loadDefaultPixelMappings() noexcept
+{
+    m_pixelMapManager = new PixelMapManager();
+    MapTemplate *map1 = new IntensityMap();
+    MapTemplate *map2 = new HSVMap();
+
+    m_pixelMapManager->addMap({ nullptr, map1 });
+    m_pixelMapManager->addMap({ nullptr, map2 });
+}
+
+void
+Sonify::showDragDropText() noexcept
+{
+    const char *text    = m_dragDropText.c_str();
+    const Vector2 &size = MeasureTextEx(m_font, text, m_font.baseSize, 1.2f);
+    Vector2 position    = {
+        m_screenW / 2 - size.x / 2,
+        m_screenH / 2 - size.y / 2,
+    };
+
+    DrawTextEx(m_font, text, position, m_font.baseSize, 0, m_dragDropTextColor);
+}
+
+void
+Sonify::handleFileDrop() noexcept
+{
+
+    FilePathList droppedFiles = LoadDroppedFiles();
+    const char *filename      = droppedFiles.paths[0];
+    if (filename)
+    {
+        if (!OpenImage(filename))
+        {
+            m_dragDropText      = "Invalid File!";
+            m_dragDropTextColor = RED;
+        }
+    }
+
+    UnloadDroppedFiles(droppedFiles);
+}
+
+void
+Sonify::centerImage() noexcept
+{
+    int x = -m_image.width * 0.5f;
+    int y = -m_image.height * 0.5f;
+    m_texture->setPos({ x, y });
 }
