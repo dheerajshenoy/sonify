@@ -38,7 +38,7 @@ namespace utils
     // Generate sine wae
     void generateSineWave(std::vector<short> &vector, double _amplitude,
                           double frequency, double time,
-                          float samplerate) noexcept
+                          int samplerate) noexcept
     {
         const unsigned int N = static_cast<unsigned int>(samplerate * time);
         if (N == 0) return;
