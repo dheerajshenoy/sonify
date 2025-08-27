@@ -3,6 +3,7 @@
 #include "CircleItem.hpp"
 #include "Config.hpp"
 #include "DTexture.hpp"
+#include "FFT.hpp"
 #include "LineItem.hpp"
 #include "PathItem.hpp"
 #include "PixelMapManager.hpp"
@@ -71,6 +72,7 @@ private:
 
     void collectAntiClockwise(Color *pixels, int w, int h,
                               AudioBuffer &buffer) noexcept;
+    void renderFFT() noexcept;
     void parse_args(const argparse::ArgumentParser &) noexcept;
     void setSamplerate(int SR) noexcept;
     void recenterView() noexcept;

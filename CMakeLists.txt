@@ -46,6 +46,7 @@ set(SOURCES
 set(HEADERS
     src/Config.hpp
   src/Timer.hpp
+  src/FFT.hpp
 )
 
 add_executable(${PROJECT_NAME}_app ${SOURCES} ${HEADERS})

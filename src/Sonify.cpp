@@ -1,5 +1,6 @@
 #include "Sonify.hpp"
 
+#include "FFT.hpp"
 #include "PixelMapManager.hpp"
 #include "raylib.h"
 #include "sonify/DefaultPixelMappings/IntensityMap.hpp"
@@ -129,6 +130,7 @@ Sonify::render() noexcept
     if (m_li) m_li->render();
     if (m_ci) m_ci->render();
     if (m_pi) m_pi->render();
+    renderFFT();
 }
 
 // std::vector<short>
@@ -822,9 +824,11 @@ void
 Sonify::recenterView() noexcept
 {
     m_camera.rotation = 0.0f;
-    m_camera.target   = { 0.0f, 0.0f };
-    m_camera.offset   = (Vector2){ m_screenW * 0.5f, m_screenH * 0.5f };
-    m_camera.zoom     = 1.0f;
+    // m_camera.target   = { 0.0f, 0.0f };
+    m_camera.offset = { m_screenW / 2 - m_image.width / 2,
+                        m_screenH / 2 - m_image.height / 2 };
+    m_camera.target = { 0, 0 };
+    m_camera.zoom   = 1.0f;
 }
 
 void
@@ -970,7 +974,30 @@ Sonify::handleFileDrop() noexcept
 void
 Sonify::centerImage() noexcept
 {
-    int x = -m_image.width * 0.5f;
-    int y = -m_image.height * 0.5f;
-    m_texture->setPos({ x, y });
+    const Vector2 worldCenter = GetScreenToWorld2D({ 0, 0 }, m_camera);
+    m_texture->setPos({ 0, 0 });
+}
+
+void
+Sonify::renderFFT() noexcept
+{
+    if (m_audioBuffer.empty()) return;
+
+    constexpr size_t FFT_SIZE = 1024;
+    using namespace sonify;
+
+    vec_complex fft_input(FFT_SIZE);
+    size_t start =
+        (m_audioReadPos < FFT_SIZE) ? 0 : (size_t)m_audioReadPos - FFT_SIZE;
+
+    for (size_t i = 0; i < FFT_SIZE; i++)
+    {
+        size_t idx    = start + i;
+        double sample = (idx < m_audioBuffer.size()) ? m_audioBuffer[idx] : 0.0;
+        fft_input.emplace_back(sample, 0.0);
+    }
+
+    FFT(fft_input); // in-place
+
+    DrawSpectrum(fft_input, m_image.width, m_image.height);
 }
