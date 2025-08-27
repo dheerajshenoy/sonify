@@ -52,18 +52,22 @@ Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
     loadDefaultPixelMappings();
     loadUserPixelMappings();
 
-    if (m_headless && !m_openFileNameRequested.empty())
+    if (!m_openFileNameRequested.empty())
     {
         if (OpenImage(m_openFileNameRequested))
         {
-            if (!m_silence) TraceLog(LOG_INFO, "Sonifying...Please wait...");
-            sonification();
-            if (!m_silence)
+            if (m_headless)
             {
-                TraceLog(LOG_INFO, "Duration: %f(s)",
-                         m_audioBuffer.size() / m_sampleRate);
+                if (!m_silence)
+                    TraceLog(LOG_INFO, "Sonifying...Please wait...");
+                sonification();
+                if (!m_silence)
+                {
+                    TraceLog(LOG_INFO, "Duration: %f(s)",
+                             m_audioBuffer.size() / m_sampleRate);
+                }
+                toggleAudioPlayback();
             }
-            toggleAudioPlayback();
         }
         else
         {
