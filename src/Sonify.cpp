@@ -16,7 +16,7 @@
 Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
 {
     parse_args(args);
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT);
     InitWindow(0, 0, "Sonify");
     SetTargetFPS(m_fps);
     SetWindowMinSize(1000, 600);
