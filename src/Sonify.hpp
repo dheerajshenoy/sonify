@@ -13,6 +13,7 @@
 #include "sonify/DefaultPixelMappings/HSVMap.hpp"
 #include "sonify/DefaultPixelMappings/IntensityMap.hpp"
 #include "sonify/Pixel.hpp"
+#include "sonify/utils.hpp"
 
 #include <fftw3.h>
 #include <functional>
@@ -142,20 +143,27 @@ private:
 
     float m_showNotSonifiedMessageTimer{ 1.5f };
     int m_audioReadPos{ 0 };
-    int m_sampleRate{ 44100 };
-    int m_channels{ 1 };
-    int m_fps{ 60 };
-    TraversalType m_traversal_type{ 0 };
+
     Camera2D m_camera;
     int m_screenW, m_screenH;
     PixelMapManager *m_pixelMapManager{ nullptr };
-    Color m_bg{ ColorFromHex(0x000000) };
+
     std::string m_dragDropText{ "Drop an image file here to sonify" };
     Color m_dragDropTextColor{ DARKGRAY };
-
     Config m_config;
     Font m_font;
     Timer m_timer;
+
+    // COMMAND LINE ARGUMENTS
+    TraversalType m_traversal_type{ 0 };
+    float m_min_freq{ 0 };
+    float m_max_freq{ 20000 };
+    float m_sampleRate{ 44100.0f };
+    int m_channels{ 1 };
+    int m_fps{ 60 };
+    MapTemplate::FreqMapFunc m_freq_map_func{ utils::LinearMap };
+    Color m_bg{ ColorFromHex(0x000000) };
+    bool m_display_fft_spectrum{ true };
 };
 
 static Sonify *gInstance{ nullptr };

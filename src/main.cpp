@@ -4,39 +4,56 @@
 void
 init_args(argparse::ArgumentParser &args)
 {
-    args.add_argument("--samplerate")
-        .scan<'i', int>()
+    args.add_argument("--samplerate", "-s")
+        .scan<'g', float>()
+        .default_value(44100.0f)
         .help("Samplerate of the audio");
 
     // args.add_argument("-s").scan<'i', int>().help("Samplerate of the audio");
 
-    args.add_argument("--channels")
+    args.add_argument("--channels", "-c")
         .scan<'i', int>()
+        .default_value(2)
         .help("No. of channels to be used");
 
     // args.add_argument("-c").scan<'i', int>().help("No. of channels to be
     // used");
 
-    args.add_argument("--output").help("Output WAV file name");
+    args.add_argument("--output", "-o").help("Output WAV file name");
 
-    args.add_argument("--traversal")
+    args.add_argument("--traversal", "-t")
         .scan<'i', int>()
+        .default_value(0)
         .help("ID of the traversal to be used");
 
     // args.add_argument("-t").scan<'i', int>().help(
     //     "ID of the traversal to be used");
 
-    args.add_argument("--background")
+    args.add_argument("--background", "-b")
         .scan<'i', unsigned int>()
         .help("Background color");
 
-    args.add_argument("--pixelmap")
+    args.add_argument("--pixelmap", "-p")
+        .default_value("Intensity")
         .help("Name of the pixel mapping to be used");
 
-    // args.add_argument("-p").help("Name of the pixel mapping to be used");
+    args.add_argument("--no-spectrum")
+        .flag()
+        .help("Do not display FFT spectrum");
 
-    args.add_argument("--no-gui")
-        .help("Disable GUI, run headless (just audio)");
+    // args.add_argument("--in-fmin")
+    //     .scan<'i', unsigned int>()
+    //     .help("Input minimum frequency");
+    //
+    // args.add_argument("--in-fmax")
+    //     .scan<'i', unsigned int>()
+    //     .help("Input maximum frequency");
+
+    args.add_argument("--fmin").scan<'g', float>().default_value(0.0f).help(
+        "Output minimum frequency");
+
+    args.add_argument("--fmax").scan<'g', float>().default_value(20000.0f).help(
+        "Output maximum frequency");
 
     // args.add_argument("-n").help("Disable GUI, run headless (just audio)");
 

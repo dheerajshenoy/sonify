@@ -15,19 +15,14 @@
 
 Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
 {
+    parse_args(args);
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(0, 0, "Sonify");
     SetTargetFPS(m_fps);
     SetWindowMinSize(1000, 600);
-
     m_screenW = GetScreenWidth();
     m_screenH = GetScreenHeight();
     m_font = LoadFontEx(m_config.font_family.c_str(), m_config.font_size, 0, 0);
-    gInstance = this;
-
-    InitAudioDevice();
-    SetAudioStreamBufferSizeDefault(4096);
-    setSamplerate(m_sampleRate);
 
     m_camera          = { 0 };
     m_camera.target   = { 0, 0 };
@@ -35,9 +30,14 @@ Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
     m_camera.rotation = 0.0f;
     m_camera.zoom     = 1.0f;
 
+    gInstance = this;
+
+    InitAudioDevice();
+    SetAudioStreamBufferSizeDefault(4096);
+    setSamplerate(m_sampleRate);
+
     loadDefaultPixelMappings();
     loadUserPixelMappings();
-    parse_args(args);
     loop();
 }
 
@@ -52,10 +52,10 @@ Sonify::~Sonify() noexcept
 void
 Sonify::loop() noexcept
 {
-
     while (!WindowShouldClose())
     {
         m_timer.update();
+
         int newW = GetScreenWidth();
         int newH = GetScreenHeight();
         if (newW != m_screenW || newH != m_screenH)
@@ -63,19 +63,10 @@ Sonify::loop() noexcept
             m_screenW = newW;
             m_screenH = newH;
         }
-        //
-        //     if (m_texture)
-        //     {
-        //         int x = m_screenW / 2 - m_texture->width() / 2;
-        //         int y = m_screenH / 2 - m_texture->height() / 2;
-        //         m_texture->setPos({ x, y });
-        //     }
-        // }
         if (m_traversal_type == TraversalType::PATH) handleMouseEvents();
         handleMouseScroll();
         handleKeyEvents();
         if (m_audioPlaying && m_cursorUpdater) m_cursorUpdater(m_audioReadPos);
-
         BeginDrawing();
         {
             ClearBackground(m_bg);
@@ -130,27 +121,8 @@ Sonify::render() noexcept
     if (m_li) m_li->render();
     if (m_ci) m_ci->render();
     if (m_pi) m_pi->render();
-    renderFFT();
+    if (m_display_fft_spectrum) renderFFT();
 }
-
-// std::vector<short>
-// Sonify::mapFunc(const std::vector<Pixel> &pixelColumn) noexcept
-// {
-//     using freqMapFunc =
-//         std::function<double(double, double, double, double, double)>;
-//     freqMapFunc mapper = utils::LogMap;
-//
-//     std::vector<short> fs;
-//     double f = 0;
-//
-//     for (const auto &px : pixelColumn)
-//     {
-//         HSV hsv = utils::RGBtoHSV(px.rgba);
-//         f += mapper(0, 200, 0, 4000, hsv.v);
-//     }
-//     utils::generateSineWave(fs, 0.5, f, 0.01, m_sampleRate);
-//     return fs;
-// }
 
 void
 Sonify::audioCallback(void *buffer, unsigned int frames)
@@ -254,6 +226,9 @@ Sonify::sonification() noexcept
     { return t->mapping(pixels); };
 
     // TODO: Set properties in t
+    t->setMinFreq(m_min_freq);
+    t->setMaxFreq(m_max_freq);
+    t->setFreqMap(m_freq_map_func);
 
     if (!m_mapFunc)
     {
@@ -326,7 +301,7 @@ Sonify::collectLeftToRight(Color *pixels, int w, int h,
 {
 
     std::vector<Pixel> pixelCol;
-    pixelCol.reserve(h);
+    pixelCol.reserve((size_t)h);
 
     for (int x = 0; x < w; x++)
     {
@@ -793,6 +768,8 @@ Sonify::parse_args(const argparse::ArgumentParser &args) noexcept
     if (args.is_used("--samplerate"))
         setSamplerate(args.get<int>("--samplerate"));
 
+    if (args.is_used("--no-spectrum")) m_display_fft_spectrum = false;
+
     // if (args.is_used("--channels"))
     //     setChannels(std::stoi(args.get("--channels")));
 
@@ -800,10 +777,14 @@ Sonify::parse_args(const argparse::ArgumentParser &args) noexcept
         m_traversal_type =
             static_cast<TraversalType>(args.get<int>("--traversal"));
 
+    if (args.is_used("--fmin")) m_min_freq = args.get<float>("--fmin");
+    if (args.is_used("--fmax")) m_max_freq = args.get<float>("--fmax");
+
     if (args.is_used("--background"))
         m_bg = ColorFromHex(args.get<unsigned int>("--background"));
 
     if (args.is_used("--fps")) m_fps = std::stoi(args.get("--fps"));
+
     if (args.is_used("FILE")) { OpenImage(args.get("FILE")); }
 }
 
