@@ -24,7 +24,7 @@ public:
                  static_cast<double>(N);
         }
 
-        wave = utils::sineWave(0.5, f, 1, _sample_rate);
+        wave = utils::sineWave(0.5, f, _duration_per_sample, _sample_rate);
         fs   = utils::addVectors(fs, wave);
         return fs;
     }

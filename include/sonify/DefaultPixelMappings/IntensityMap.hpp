@@ -21,10 +21,11 @@ public:
         for (const auto &px : pixelCol)
         {
             const HSV hsv = utils::RGBtoHSV(px.rgba);
-            freq += freq_map(0, 1000, _min_freq, _max_freq, hsv.v);
+            freq += freq_map(0, 1, _min_freq, _max_freq, hsv.v);
         }
 
-        utils::generateSineWave(fs, 0.25, freq, 0.05, _sample_rate);
+        utils::generateSineWave(fs, 0.25, freq, _duration_per_sample,
+                                _sample_rate);
         utils::applyFadeInOut(fs);
         utils::normalizeWave(fs);
         return fs;
