@@ -17,7 +17,7 @@ Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(0, 0, "Sonify");
     SetTargetFPS(m_fps);
-    SetWindowMinSize(800, 600);
+    SetWindowMinSize(1000, 600);
 
     m_screenW = GetScreenWidth();
     m_screenH = GetScreenHeight();
