@@ -41,6 +41,15 @@ init_args(argparse::ArgumentParser &args)
         .flag()
         .help("Do not display FFT spectrum");
 
+    args.add_argument("--headless").flag().help("Run an headless instance");
+
+    args.add_argument("--loop").flag().help("Enable audio looping");
+
+    args.add_argument("--silent").flag().help("Silence INFO/WARNING messages");
+
+    args.add_argument("--dps").scan<'g', float>().default_value(0.05f).help(
+        "Durations per sample");
+
     // args.add_argument("--in-fmin")
     //     .scan<'i', unsigned int>()
     //     .help("Input minimum frequency");
@@ -59,7 +68,7 @@ init_args(argparse::ArgumentParser &args)
 
     args.add_argument("--fps").scan<'i', int>().help("FPS of the GUI");
 
-    args.add_argument("FILE").remaining().help("Input file");
+    args.add_argument("--input", "-i").help("Input file");
 }
 
 int

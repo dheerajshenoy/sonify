@@ -11,34 +11,67 @@
 #include <dlfcn.h>
 #include <filesystem>
 #include <functional>
-#include <type_traits>
 
 Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
 {
     parse_args(args);
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT);
-    InitWindow(0, 0, "Sonify");
-    SetTargetFPS(m_fps);
-    SetWindowMinSize(1000, 600);
-    m_screenW = GetScreenWidth();
-    m_screenH = GetScreenHeight();
-    m_font = LoadFontEx(m_config.font_family.c_str(), m_config.font_size, 0, 0);
 
-    m_camera          = { 0 };
-    m_camera.target   = { 0, 0 };
-    m_camera.offset   = { 0, 0 };
-    m_camera.rotation = 0.0f;
-    m_camera.zoom     = 1.0f;
+    m_window_config_flags =
+        FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT;
+
+    if (m_headless) m_window_config_flags &= FLAG_WINDOW_HIDDEN;
+#ifdef NDEBUG
+    SetTraceLogLevel(LOG_NONE);
+#endif
+    InitWindow(0, 0, "Sonify");
+
+    SetWindowState(m_window_config_flags);
+    if (!m_headless)
+    {
+        SetTargetFPS(m_fps);
+        SetWindowMinSize(1000, 600);
+        m_screenW = GetScreenWidth();
+        m_screenH = GetScreenHeight();
+        m_font =
+            LoadFontEx(m_config.font_family.c_str(), m_config.font_size, 0, 0);
+
+        m_camera          = { 0 };
+        m_camera.target   = { 0, 0 };
+        m_camera.offset   = { 0, 0 };
+        m_camera.rotation = 0.0f;
+        m_camera.zoom     = 1.0f;
+    }
 
     gInstance = this;
 
-    InitAudioDevice();
     SetAudioStreamBufferSizeDefault(4096);
+
+    InitAudioDevice();
     setSamplerate(m_sampleRate);
 
     loadDefaultPixelMappings();
     loadUserPixelMappings();
-    loop();
+
+    if (m_headless && !m_openFileNameRequested.empty())
+    {
+        if (OpenImage(m_openFileNameRequested))
+        {
+            if (!m_silence) TraceLog(LOG_INFO, "Sonifying...Please wait...");
+            sonification();
+            if (!m_silence)
+            {
+                TraceLog(LOG_INFO, "Duration: %f(s)",
+                         m_audioBuffer.size() / m_sampleRate);
+            }
+            toggleAudioPlayback();
+        }
+        else
+        {
+            TraceLog(LOG_FATAL, "Unable to open image. Exiting!");
+            exit(0);
+        }
+    }
+    GUIloop();
 }
 
 Sonify::~Sonify() noexcept
@@ -46,48 +79,51 @@ Sonify::~Sonify() noexcept
     CloseAudioDevice();
     StopAudioStream(m_stream);
     UnloadAudioStream(m_stream);
-    UnloadFont(m_font);
+    if (IsFontValid(m_font)) UnloadFont(m_font);
 }
 
 void
-Sonify::loop() noexcept
+Sonify::GUIloop() noexcept
 {
-    while (!WindowShouldClose())
+    while (!WindowShouldClose() && !m_exit_requested)
     {
-        m_timer.update();
-
-        int newW = GetScreenWidth();
-        int newH = GetScreenHeight();
-        if (newW != m_screenW || newH != m_screenH)
+        if (!m_headless)
         {
-            m_screenW = newW;
-            m_screenH = newH;
-        }
-        if (m_traversal_type == TraversalType::PATH) handleMouseEvents();
-        handleMouseScroll();
-        handleKeyEvents();
-        if (m_audioPlaying && m_cursorUpdater) m_cursorUpdater(m_audioReadPos);
-        BeginDrawing();
-        {
-            ClearBackground(m_bg);
-            if (IsFileDropped()) handleFileDrop();
-            if (m_showDragDropText) showDragDropText();
-            BeginMode2D(m_camera);
-            render();
-            EndMode2D();
-            if (m_showNotSonifiedMessage)
+            m_timer.update();
+            const int newW = GetScreenWidth();
+            const int newH = GetScreenHeight();
+            if (newW != m_screenW || newH != m_screenH)
             {
-                m_showNotSonifiedMessageTimer -= GetFrameTime();
-                if (m_showNotSonifiedMessageTimer <= 0.0f)
-                {
-                    m_showNotSonifiedMessage      = false;
-                    m_showNotSonifiedMessageTimer = 1.5f;
-                }
-
-                DrawText("Press `J` to sonify first", 10, 10, 20, RED);
+                m_screenW = newW;
+                m_screenH = newH;
             }
+            if (m_traversal_type == TraversalType::PATH) handleMouseEvents();
+            handleMouseScroll();
+            handleKeyEvents();
+            if (m_audioPlaying && m_cursorUpdater)
+                m_cursorUpdater(m_audioReadPos);
+            BeginDrawing();
+            {
+                ClearBackground(m_bg);
+                if (IsFileDropped()) handleFileDrop();
+                if (m_showDragDropText) showDragDropText();
+                BeginMode2D(m_camera);
+                render();
+                EndMode2D();
+                if (m_showNotSonifiedMessage)
+                {
+                    m_showNotSonifiedMessageTimer -= GetFrameTime();
+                    if (m_showNotSonifiedMessageTimer <= 0.0f)
+                    {
+                        m_showNotSonifiedMessage      = false;
+                        m_showNotSonifiedMessageTimer = 1.5f;
+                    }
+
+                    DrawText("Press `J` to sonify first", 10, 10, 20, RED);
+                }
+            }
+            EndDrawing();
         }
-        EndDrawing();
     }
 }
 
@@ -99,15 +135,24 @@ Sonify::OpenImage(std::string fileName) noexcept
         UnloadTexture(m_texture->texture());
     if (!fileName.empty()) fileName = replaceHome(fileName);
 
-    if (m_texture->load(fileName.c_str()))
+    bool status = m_texture->load(fileName.c_str());
+    if (!m_headless)
     {
-        const int x = m_screenW / 2 - m_texture->width() / 2;
-        const int y = m_screenH / 2 - m_texture->height() / 2;
-        m_texture->setPos({ x, y });
-        m_image            = LoadImageFromTexture(m_texture->texture());
-        m_showDragDropText = false;
-        centerImage();
-        recenterView();
+        if (status)
+        {
+            const int x = m_screenW / 2 - m_texture->width() / 2;
+            const int y = m_screenH / 2 - m_texture->height() / 2;
+            m_texture->setPos({ x, y });
+            m_image            = LoadImageFromTexture(m_texture->texture());
+            m_showDragDropText = false;
+            centerImage();
+            recenterView();
+            return true;
+        }
+    }
+    else
+    {
+        m_image = LoadImageFromTexture(m_texture->texture());
         return true;
     }
 
@@ -134,12 +179,20 @@ Sonify::audioCallback(void *buffer, unsigned int frames)
 
     for (unsigned int i = 0; i < frames; ++i)
     {
-        // Loop when reaching the end
         if (gInstance->m_audioReadPos >= audio.size())
         {
-            out[i]                        = 0;
-            gInstance->m_finishedPlayback = true;
-            gInstance->m_audioPlaying     = false;
+            out[i] = 0;
+            if (gInstance->m_loop) { gInstance->m_audioReadPos = 0; }
+            else
+            {
+                if (gInstance->m_headless)
+                    gInstance->m_exit_requested = true;
+                else
+                {
+                    gInstance->m_finishedPlayback = true;
+                    gInstance->m_audioPlaying     = false;
+                }
+            }
         }
         else { out[i] = audio[(unsigned long)gInstance->m_audioReadPos++]; }
     }
@@ -192,9 +245,13 @@ Sonify::toggleAudioPlayback() noexcept
     {
         if (!m_isSonified)
         {
-            m_showNotSonifiedMessage = true;
-            return;
+            if (!m_headless)
+            {
+                m_showNotSonifiedMessage = true;
+                return;
+            }
         }
+
         if (m_audioReadPos >= m_audioBuffer.size()) { m_audioReadPos = 0; }
 
         PlayAudioStream(m_stream);
@@ -209,10 +266,16 @@ Sonify::sonification() noexcept
     int h         = m_image.height;
     int w         = m_image.width;
 
+    if (!pixels)
+    {
+        TraceLog(LOG_WARNING, "No pixels data found!");
+        return;
+    }
+
     AudioBuffer soundBuffer;
     m_audioBuffer.clear();
 
-    updateCursorUpdater();
+    if (!m_headless) updateCursorUpdater();
 
     MapTemplate *t = m_pixelMapManager->getMapTemplate(m_pixelMapName.c_str());
 
@@ -225,10 +288,10 @@ Sonify::sonification() noexcept
     m_mapFunc = [&t](const std::vector<Pixel> &pixels) -> std::vector<short>
     { return t->mapping(pixels); };
 
-    // TODO: Set properties in t
     t->setMinFreq(m_min_freq);
     t->setMaxFreq(m_max_freq);
     t->setFreqMap(m_freq_map_func);
+    t->setDurationPerSample(m_duration_per_sample);
 
     if (!m_mapFunc)
     {
@@ -272,6 +335,13 @@ Sonify::sonification() noexcept
 
         case TraversalType::PATH:
         {
+            if (m_headless)
+            {
+                TraceLog(LOG_FATAL, "Cannot run Traversal type of PATH in "
+                                    "headless mode. Exitting!");
+                exit(0);
+            }
+
             const auto &pathPixels = m_pi->pixels();
             for (const auto &p : pathPixels)
             {
@@ -768,8 +838,24 @@ Sonify::parse_args(const argparse::ArgumentParser &args) noexcept
     if (args.is_used("--samplerate"))
         setSamplerate(args.get<int>("--samplerate"));
 
+    if (args.is_used("--loop")) m_loop = true;
+
+    if (args.is_used("--dps")) m_duration_per_sample = args.get<float>("--dps");
+
+    if (args.is_used("--headless"))
+    {
+        if (!args.is_used("--input"))
+        {
+            TraceLog(LOG_FATAL, "No file provided in headless mode. Exiting!");
+            exit(0);
+        }
+
+        m_headless = true;
+    }
+
     if (args.is_used("--no-spectrum")) m_display_fft_spectrum = false;
 
+    // TODO
     // if (args.is_used("--channels"))
     //     setChannels(std::stoi(args.get("--channels")));
 
@@ -785,7 +871,8 @@ Sonify::parse_args(const argparse::ArgumentParser &args) noexcept
 
     if (args.is_used("--fps")) m_fps = std::stoi(args.get("--fps"));
 
-    if (args.is_used("FILE")) { OpenImage(args.get("FILE")); }
+    if (args.is_used("--input"))
+        m_openFileNameRequested = args.get<std::string>("--input");
 }
 
 void
@@ -955,7 +1042,6 @@ Sonify::handleFileDrop() noexcept
 void
 Sonify::centerImage() noexcept
 {
-    const Vector2 worldCenter = GetScreenToWorld2D({ 0, 0 }, m_camera);
     m_texture->setPos({ 0, 0 });
 }
 

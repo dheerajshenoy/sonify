@@ -37,7 +37,7 @@ private:
     static void audioCallback(void *bufferData, unsigned int frames);
 
     void sonification() noexcept;
-    void loop() noexcept;
+    void GUIloop() noexcept;
     void render() noexcept;
     void handleMouseScroll() noexcept;
     void handleMouseEvents() noexcept;
@@ -130,6 +130,11 @@ private:
     AudioStream m_stream{ 0 };
     std::vector<short> m_audioBuffer;
     std::string m_saveFileName;
+
+    // used to store the file name to be opened through the command
+    // line argument as the GUI loop is still not opened yet
+    std::string m_openFileNameRequested;
+
     std::string m_pixelMapName{ "Intensity" };
     LineItem *m_li{ nullptr };
     CircleItem *m_ci{ nullptr };
@@ -153,6 +158,8 @@ private:
     Config m_config;
     Font m_font;
     Timer m_timer;
+    unsigned int m_window_config_flags;
+    bool m_exit_requested{ false };
 
     // COMMAND LINE ARGUMENTS
     TraversalType m_traversal_type{ 0 };
@@ -164,6 +171,10 @@ private:
     MapTemplate::FreqMapFunc m_freq_map_func{ utils::LinearMap };
     Color m_bg{ ColorFromHex(0x000000) };
     bool m_display_fft_spectrum{ true };
+    bool m_headless{ false };
+    bool m_loop{ false };
+    float m_duration_per_sample{ 0.05f };
+    bool m_silence{ false }; // handles displaying INFO/WARNING messages
 };
 
 static Sonify *gInstance{ nullptr };
