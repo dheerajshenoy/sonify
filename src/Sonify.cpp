@@ -1085,5 +1085,5 @@ Sonify::renderFFT() noexcept
 
     FFT(fft_input); // in-place
 
-    DrawSpectrum(fft_input, m_image.width, m_image.height);
+    DrawSpectrum(fft_input, m_image.width, m_image.height, 100, 0);
 }
