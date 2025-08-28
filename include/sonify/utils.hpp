@@ -22,12 +22,19 @@ namespace utils
                           int samplerate) noexcept;
     std::vector<short> sineWave(double _amplitude, double frequency,
                                 double time, float samplerate) noexcept;
+
+    // ------- Signal Effects --------
     void applyEnvelope(std::vector<short> &samples) noexcept;
     void normalizeWave(std::vector<short> &wave) noexcept;
-    void applyFadeInOut(std::vector<short> &wave, int fade = 10) noexcept;
+    void applyFadeInOut(std::vector<short> &wave,
+                        double fadeFrac = 0.05) noexcept;
+    std::vector<short> panStereo(const std::vector<short> &mono,
+                                 float pan) noexcept;
+    // Quantize arbitrary frequency to nearest note in 12-TET scale
+    double quantizeToNote(double freq) noexcept;
 
     // ------- Utility -------
-    double Hue2Freq(double hue) noexcept;
+    double Hue2Freq(int hue) noexcept;
     std::vector<double> linspace(double start, double end, int num) noexcept;
     HSV RGBtoHSV(const RGBA &) noexcept;
     float intensity(const RGBA &) noexcept;
