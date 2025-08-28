@@ -23,6 +23,7 @@ public:
     bool load(const char *filename) noexcept;
     Texture2D texture() const noexcept { return m_texture; }
     inline void setPos(const DVector2<int> &pos) noexcept { m_pos = pos; }
-    void resize(const std::array<int, 2> &dim = { -1, -1 }) noexcept;
+    void resize(const std::array<int, 2> &dim = { -1, -1 },
+                bool keepAspectRatio          = false) noexcept;
     auto pos() const noexcept -> decltype(m_pos) { return m_pos; }
 };
