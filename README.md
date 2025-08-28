@@ -2,6 +2,9 @@
 
 Sonify is a GUI & command-line tool that converts images into sound. It lets you experiment with pixel-to-frequency mappings, spectrums, and headless audio rendering.
 
+> [!NOTE]
+> Current version: 0.2.0
+
 # Features
 
 - Map pixel intensities or custom mappings into audio frequencies.
@@ -12,6 +15,9 @@ Sonify is a GUI & command-line tool that converts images into sound. It lets you
 - Live FFT spectrum visualization.
 
 # Installation
+
+> [!WARN]
+> Sonify uses C++20 features and hence requires C++20 or greater compiler to compile
 
 Install `ninja` build system first
 
