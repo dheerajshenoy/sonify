@@ -108,6 +108,7 @@ private:
     void showDragDropText() noexcept;
     void handleFileDrop() noexcept;
     void readConfigFile() noexcept;
+    bool renderVideo() noexcept;
 
 private:
 
@@ -151,6 +152,8 @@ private:
     bool m_showDragDropText{ true };
     bool m_exit_requested{ false };
     bool m_isAudioSaved{ false };
+    bool m_isVideoSaved{ false };
+    bool m_isVideoRendering{ false };
 
     float m_showNotSonifiedMessageTimer{ 1.5f };
     unsigned int m_audioReadPos{ 0 };
@@ -166,6 +169,7 @@ private:
     int m_font_size{ 60 };
     Timer m_timer;
     unsigned int m_window_config_flags;
+    RenderTexture2D m_recordTarget{};
 
     // COMMAND LINE ARGUMENTS
     TraversalType m_traversal_type{ 0 };

@@ -89,6 +89,8 @@ Sonify::~Sonify() noexcept
     StopAudioStream(m_stream);
     UnloadAudioStream(m_stream);
     if (IsFontValid(m_font)) UnloadFont(m_font);
+    if (IsRenderTextureValid(m_recordTarget))
+        UnloadRenderTexture(m_recordTarget);
 }
 
 void
@@ -106,32 +108,75 @@ Sonify::GUIloop() noexcept
                 m_screenW = newW;
                 m_screenH = newH;
             }
-            if (m_traversal_type == TraversalType::PATH) handleMouseEvents();
-            handleMouseScroll();
-            handleKeyEvents();
-            if (m_audioPlaying && m_cursorUpdater)
-                m_cursorUpdater(m_audioReadPos);
+            if (!m_isVideoRendering)
+            {
+                if (m_traversal_type == TraversalType::PATH)
+                    handleMouseEvents();
+                handleMouseScroll();
+                handleKeyEvents();
+                if (m_audioPlaying && m_cursorUpdater)
+                    m_cursorUpdater(m_audioReadPos);
+            }
+
             BeginDrawing();
             {
                 ClearBackground(m_bg);
-                if (IsFileDropped()) handleFileDrop();
-                if (m_showDragDropText) showDragDropText();
-                BeginMode2D(m_camera);
-                render();
-                EndMode2D();
-                if (m_showNotSonifiedMessage)
-                {
-                    m_showNotSonifiedMessageTimer -= GetFrameTime();
-                    if (m_showNotSonifiedMessageTimer <= 0.0f)
-                    {
-                        m_showNotSonifiedMessage      = false;
-                        m_showNotSonifiedMessageTimer = 1.5f;
-                    }
 
-                    DrawText("Press `J` to sonify first", 10, 10, 20, RED);
+                if (m_isVideoRendering)
+                {
+
+                    BeginTextureMode(m_recordTarget);
+                    {
+                        ClearBackground(m_bg);
+                        BeginMode2D(m_camera);
+                        render(); // full rendering path
+                        EndMode2D();
+                    }
+                    EndTextureMode();
+
+                    Image frame = LoadImageFromTexture(m_recordTarget.texture);
+                    ImageFlipVertical(&frame);
+                    std::fwrite(frame.data, 1,
+                                frame.width * frame.height * sizeof(uint32_t),
+                                m_ffmpeg);
+                    UnloadImage(frame);
+
+                    // --- On screen, only show text ---
+                    DrawText("Recording...", 10, 10, 30, RED);
+
+                    if (!m_audioPlaying)
+                    {
+                        fflush(m_ffmpeg);
+                        fclose(m_ffmpeg);
+                        m_cursorUpdater(m_audioReadPos);
+                        m_ffmpeg           = nullptr;
+                        m_isVideoRendering = false;
+                    }
                 }
+                else
+                {
+
+                    if (IsFileDropped()) handleFileDrop();
+                    if (m_showDragDropText) showDragDropText();
+
+                    BeginMode2D(m_camera);
+                    render();
+                    EndMode2D();
+
+                    if (m_showNotSonifiedMessage)
+                    {
+                        m_showNotSonifiedMessageTimer -= GetFrameTime();
+                        if (m_showNotSonifiedMessageTimer <= 0.0f)
+                        {
+                            m_showNotSonifiedMessage      = false;
+                            m_showNotSonifiedMessageTimer = 1.5f;
+                        }
+
+                        DrawText("Press `J` to sonify first", 10, 10, 20, RED);
+                    }
+                }
+                EndDrawing();
             }
-            EndDrawing();
         }
     }
 }
@@ -192,6 +237,10 @@ Sonify::audioCallback(void *buffer, unsigned int frames)
         if (gInstance->m_audioReadPos >= audio.size())
         {
             out[i] = 0;
+            if (gInstance->m_isVideoRendering)
+            {
+                gInstance->m_isVideoRendering = false;
+            }
             if (gInstance->m_loop) { gInstance->m_audioReadPos = 0; }
             else
             {
@@ -238,6 +287,7 @@ Sonify::handleKeyEvents() noexcept
     if (IsKeyPressed(KEY_SPACE)) toggleAudioPlayback();
     if (IsKeyPressed(KEY_ZERO)) recenterView();
     if (IsKeyPressed(KEY_J)) sonification();
+    if (IsKeyPressed(KEY_R)) renderVideo();
 
     if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT))
     {
@@ -1159,4 +1209,34 @@ Sonify::readConfigFile() noexcept
         m_font_size = ui["font-size"].value_or<int>(60);
     }
     if (cmdline) { m_silence = cmdline["silent"].value_or(false); }
+}
+bool
+Sonify::renderVideo() noexcept
+{
+    if (!m_isSonified) sonification();
+    // if (m_loop) m_loop = false;
+    if (m_audioBuffer.empty())
+    {
+        TraceLog(LOG_WARNING, "Could not find any generated music! Not "
+                              "rendering the video! ");
+        return false;
+    }
+
+    const char *audioFileName = "/tmp/sonify__tmp.wav";
+
+    if (!m_isAudioSaved && !saveAudio(audioFileName))
+    {
+        TraceLog(LOG_ERROR, "Could not save audio!"
+                            "Cannot render the video!");
+        return false;
+    }
+
+    m_ffmpeg = ffmpeg_audio_video(m_screenW, m_screenH, m_fps, audioFileName,
+                                  m_saveFileName.c_str());
+    if (!m_ffmpeg) return false;
+    // m_recordTarget = LoadRenderTexture(int width, int height)
+    m_recordTarget     = LoadRenderTexture(m_screenW, m_screenH);
+    m_isVideoRendering = true;
+    toggleAudioPlayback();
+    return true;
 }
