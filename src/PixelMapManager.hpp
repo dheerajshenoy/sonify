@@ -3,10 +3,12 @@
 #include "sonify/MapTemplate.hpp"
 
 #include <functional>
+#include <string>
 #include <vector>
 
 typedef struct
 {
+    std::string name;
     void *handle;
     MapTemplate *map;
 } PixelMap;
@@ -23,13 +25,10 @@ public:
 
     ~PixelMapManager() noexcept;
 
+    std::vector<std::string> mappingNames() noexcept;
     inline std::vector<PixelMap> &mappings() noexcept { return m_mappings; }
-    inline void addMap(const PixelMap &p) noexcept
-    {
-        m_mappings.emplace_back(p);
-    }
-
-    MapTemplate *getMapTemplate(const char *mapName) const noexcept;
+    inline void addMap(const PixelMap &p) noexcept { m_mappings.push_back(p); }
+    MapTemplate *getMapTemplate(const std::string &mapName) const noexcept;
 
 private:
 
