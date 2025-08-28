@@ -10,7 +10,8 @@ class MapTemplate
 {
 public:
 
-    using FreqMapFunc = short (*)(double, double, double, double, double);
+    using FreqMapFunc = short (*)(double in_min, double in_max, double out_min,
+                                  double out_max, double val);
 
     virtual ~MapTemplate()                                         = default;
     virtual std::vector<short> mapping(const std::vector<Pixel> &) = 0;
