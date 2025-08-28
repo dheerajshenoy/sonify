@@ -1,7 +1,6 @@
 #pragma once
 
 #include "CircleItem.hpp"
-#include "Config.hpp"
 #include "DTexture.hpp"
 #include "FFT.hpp"
 #include "LineItem.hpp"
@@ -15,6 +14,7 @@
 #include "sonify/DefaultPixelMappings/IntensityMap.hpp"
 #include "sonify/Pixel.hpp"
 #include "sonify/utils.hpp"
+#include "toml.hpp"
 
 #include <fftw3.h>
 #include <functional>
@@ -22,7 +22,7 @@
 #include <string>
 
 #define LOG(...)         std::println(__VA_ARGS__);
-#define __SONIFY_VERSION "0.1.0"
+#define __SONIFY_VERSION "0.2.0"
 
 class Sonify
 {
@@ -31,7 +31,8 @@ public:
     Sonify(const argparse::ArgumentParser &) noexcept;
     ~Sonify() noexcept;
 
-    bool OpenImage(std::string fileName) noexcept;
+    [[nodiscard("check error status")]] bool
+    OpenImage(std::string fileName) noexcept;
 
 private:
 
@@ -45,7 +46,8 @@ private:
     void handleKeyEvents() noexcept;
     void toggleAudioPlayback() noexcept;
     void updateCursorUpdater() noexcept;
-    std::string replaceHome(const std::string_view &str) noexcept;
+    [[nodiscard("Get returned string")]] std::string
+    replaceHome(const std::string_view &str) noexcept;
 
     using AudioBuffer = std::vector<std::vector<short>>;
     void collectLeftToRight(Color *pixels, int w, int h,
@@ -84,7 +86,7 @@ private:
     void loadUserPixelMappings() noexcept;
     void loadPixelMappingsSharedObjects(const std::string &dir) noexcept;
     void loadDefaultPixelMappings() noexcept;
-    constexpr Color ColorFromHex(unsigned int hex) noexcept
+    [[nodiscard]] constexpr Color ColorFromHex(unsigned int hex) noexcept
     {
         Color c;
         if (hex <= 0xFFFFFF) // RRGGBB
@@ -105,6 +107,7 @@ private:
     }
     void showDragDropText() noexcept;
     void handleFileDrop() noexcept;
+    void readConfigFile() noexcept;
 
 private:
 
@@ -158,8 +161,9 @@ private:
 
     std::string m_dragDropText{ "Drop an image file here to sonify" };
     Color m_dragDropTextColor{ DARKGRAY };
-    Config m_config;
     Font m_font;
+    std::string m_font_family;
+    int m_font_size{ 60 };
     Timer m_timer;
     unsigned int m_window_config_flags;
 
@@ -170,7 +174,7 @@ private:
     float m_max_freq{ 20000 };
     float m_sampleRate{ 44100.0f };
     unsigned int m_channels{ 1 };
-    int m_fps{ 60 };
+    unsigned int m_fps{ 60 };
     MapTemplate::FreqMapFunc m_freq_map_func{ utils::LinearMap };
     Color m_bg{ ColorFromHex(0x000000) };
     bool m_display_fft_spectrum{ true };

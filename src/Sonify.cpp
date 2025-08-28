@@ -5,6 +5,7 @@
 #include "raylib.h"
 #include "sonify/DefaultPixelMappings/IntensityMap.hpp"
 #include "sonify/utils.hpp"
+#include "toml.hpp"
 
 #include <cmath>
 #include <cstring>
@@ -15,26 +16,28 @@
 
 Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
 {
+    readConfigFile();
     parse_args(args);
 
     m_window_config_flags =
         FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT;
 
     if (m_headless) m_window_config_flags &= FLAG_WINDOW_HIDDEN;
+    SetConfigFlags(m_window_config_flags);
 #ifdef NDEBUG
     SetTraceLogLevel(LOG_NONE);
 #endif
+    SetTraceLogLevel(LOG_NONE);
     InitWindow(0, 0, "Sonify");
 
-    SetWindowState(m_window_config_flags);
     if (!m_headless)
     {
         SetTargetFPS(m_fps);
         SetWindowMinSize(1000, 600);
         m_screenW = GetScreenWidth();
         m_screenH = GetScreenHeight();
-        m_font =
-            LoadFontEx(m_config.font_family.c_str(), m_config.font_size, 0, 0);
+        m_font    = LoadFontEx(m_font_family.c_str(), m_font_size, 0, 0);
+        if (!IsFontValid(m_font)) { m_font = GetFontDefault(); }
 
         m_camera          = { 0 };
         m_camera.target   = { 0, 0 };
@@ -149,7 +152,7 @@ Sonify::OpenImage(std::string fileName) noexcept
             const int x = m_screenW / 2 - m_texture->width() / 2;
             const int y = m_screenH / 2 - m_texture->height() / 2;
             m_texture->setPos({ x, y });
-            m_texture->resize(m_resize_array);
+            m_texture->resize(m_resize_array, true);
             m_image            = LoadImageFromTexture(m_texture->texture());
             m_showDragDropText = false;
             centerImage();
@@ -905,7 +908,7 @@ Sonify::parse_args(const argparse::ArgumentParser &args) noexcept
     if (args.is_used("--background"))
         m_bg = ColorFromHex(args.get<unsigned int>("--background"));
 
-    if (args.is_used("--fps")) m_fps = std::stoi(args.get("--fps"));
+    if (args.is_used("--fps")) m_fps = args.get<unsigned int>("--fps");
 
     if (args.is_used("--input"))
         m_openFileNameRequested = args.get<std::string>("--input");
@@ -1111,4 +1114,49 @@ Sonify::renderFFT() noexcept
     FFT(fft_input); // in-place
 
     DrawSpectrum(fft_input, m_image.width, m_image.height, 100, 0);
+}
+
+void
+Sonify::readConfigFile() noexcept
+{
+    const std::string config_file_path{ replaceHome(
+        "~/.config/sonify/config.toml") };
+    namespace fs = std::filesystem;
+    if (!fs::exists(config_file_path)) return;
+
+    auto toml    = toml::parse_file(config_file_path);
+    auto general = toml["general"];
+    auto ui      = toml["ui"];
+    auto cmdline = toml["cmdline"];
+
+    if (general)
+    {
+        m_traversal_type =
+            static_cast<TraversalType>(general["traversal"].value_or(0));
+        m_pixelMapName        = general["pixel-map"].value_or("Intensity");
+        m_min_freq            = general["min-freq"].value_or(0.0f);
+        m_max_freq            = general["max-freq"].value_or(20000.0f);
+        m_sampleRate          = general["sample-rate"].value_or(44100.0f);
+        m_duration_per_sample = general["duration-per-sample"].value_or(0.05f);
+        m_loop                = general["loop"].value_or(false);
+        auto limit_dim        = general["limit-dimension"];
+        if (limit_dim)
+        {
+            auto limit_dim_array = *limit_dim.as_array();
+            if (!limit_dim_array.empty())
+                for (size_t i = 0; i < 2; i++)
+                    m_resize_array[i] = limit_dim_array[i].value_or(-1);
+        }
+    }
+    if (ui)
+    {
+        m_fps                  = ui["FPS"].value_or<unsigned int>(60);
+        m_display_fft_spectrum = ui["spectrum-shown"].value_or(true);
+        m_bg = ColorFromHex(ui["background"].value_or<unsigned int>(0x000000));
+        m_cursor_thickness = ui["cursor-thickness"].value_or<unsigned int>(1);
+        m_font_family      = ui["font-family"].value_or<std::string>("");
+        LOG("{}", m_font_family);
+        m_font_size = ui["font-size"].value_or<int>(60);
+    }
+    if (cmdline) { m_silence = cmdline["silent"].value_or(false); }
 }

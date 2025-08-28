@@ -66,10 +66,10 @@ init_args(argparse::ArgumentParser &args)
 
     // args.add_argument("-n").help("Disable GUI, run headless (just audio)");
 
-    args.add_argument("--fps").scan<'i', int>().help("FPS of the GUI");
+    args.add_argument("--fps").scan<'i', unsigned int>().help("FPS of the GUI");
 
     args.add_argument("--cursor-thickness")
-        .scan<'i', int>()
+        .scan<'i', unsigned int>()
         .default_value(1)
         .help("Cursor thickness");
 
