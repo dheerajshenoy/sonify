@@ -10,6 +10,7 @@
 #include "Timer.hpp"
 #include "argparse.hpp"
 #include "raylib.h"
+#include "sonify/DefaultPixelMappings/FiveSegment.hpp"
 #include "sonify/DefaultPixelMappings/HSVMap.hpp"
 #include "sonify/DefaultPixelMappings/IntensityMap.hpp"
 #include "sonify/Pixel.hpp"
@@ -75,7 +76,7 @@ private:
                               AudioBuffer &buffer) noexcept;
     void renderFFT() noexcept;
     void parse_args(const argparse::ArgumentParser &) noexcept;
-    void setSamplerate(int SR) noexcept;
+    void setSamplerate(float SR) noexcept;
     void recenterView() noexcept;
     void centerImage() noexcept;
     void seekCursor(float seconds) noexcept;

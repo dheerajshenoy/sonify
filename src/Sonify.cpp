@@ -11,6 +11,7 @@
 #include <dlfcn.h>
 #include <filesystem>
 #include <functional>
+#include <sonify/DefaultPixelMappings/FiveSegment.hpp>
 
 Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
 {
@@ -49,6 +50,7 @@ Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
     InitAudioDevice();
     setSamplerate(m_sampleRate);
 
+    m_pixelMapManager = new PixelMapManager();
     loadDefaultPixelMappings();
     loadUserPixelMappings();
 
@@ -281,7 +283,8 @@ Sonify::sonification() noexcept
 
     if (!m_headless) updateCursorUpdater();
 
-    MapTemplate *t = m_pixelMapManager->getMapTemplate(m_pixelMapName.c_str());
+    auto maps      = m_pixelMapManager->mappingNames();
+    MapTemplate *t = m_pixelMapManager->getMapTemplate(m_pixelMapName);
 
     if (!t)
     {
@@ -289,13 +292,13 @@ Sonify::sonification() noexcept
         return;
     }
 
-    m_mapFunc = [&t](const std::vector<Pixel> &pixels) -> std::vector<short>
-    { return t->mapping(pixels); };
-
     t->setMinFreq(m_min_freq);
     t->setMaxFreq(m_max_freq);
     t->setFreqMap(m_freq_map_func);
     t->setDurationPerSample(m_duration_per_sample);
+
+    m_mapFunc = [&t](const std::vector<Pixel> &pixels) -> std::vector<short>
+    { return t->mapping(pixels); };
 
     if (!m_mapFunc)
     {
@@ -857,6 +860,8 @@ Sonify::parse_args(const argparse::ArgumentParser &args) noexcept
         m_headless = true;
     }
 
+    if (args.is_used("--pixelmap")) m_pixelMapName = args.get("--pixelmap");
+
     if (args.is_used("--no-spectrum")) m_display_fft_spectrum = false;
 
     // TODO
@@ -880,7 +885,7 @@ Sonify::parse_args(const argparse::ArgumentParser &args) noexcept
 }
 
 void
-Sonify::setSamplerate(int SR) noexcept
+Sonify::setSamplerate(float SR) noexcept
 {
     m_sampleRate = SR;
     if (IsAudioStreamValid(m_stream))
@@ -977,19 +982,21 @@ Sonify::loadPixelMappingsSharedObjects(const std::string &dir) noexcept
     {
         if (entry.is_regular_file() && entry.path().extension() == ".so")
         {
-            void *handle = dlopen(entry.path().c_str(), RTLD_LAZY);
-
+            void *handle           = dlopen(entry.path().c_str(), RTLD_LAZY);
+            const std::string name = entry.path().stem().string();
             if (handle)
             {
-                MapTemplate *m =
-                    reinterpret_cast<MapTemplate *>(dlsym(handle, "create"));
-                if (!m)
+                using CreateFn  = MapTemplate *(*)();
+                void *sym       = (dlsym(handle, "create"));
+                CreateFn create = reinterpret_cast<CreateFn>(sym);
+                if (!create)
                 {
                     TraceLog(LOG_WARNING, dlerror());
                     dlclose(handle);
                     continue;
                 }
-                m_pixelMapManager->addMap({ handle, m });
+
+                m_pixelMapManager->addMap(PixelMap{ name, handle, create() });
             }
         }
     }
@@ -998,12 +1005,14 @@ Sonify::loadPixelMappingsSharedObjects(const std::string &dir) noexcept
 void
 Sonify::loadDefaultPixelMappings() noexcept
 {
-    m_pixelMapManager = new PixelMapManager();
+
     MapTemplate *map1 = new IntensityMap();
     MapTemplate *map2 = new HSVMap();
+    MapTemplate *map3 = new FiveSegmentMap();
 
-    m_pixelMapManager->addMap({ nullptr, map1 });
-    m_pixelMapManager->addMap({ nullptr, map2 });
+    m_pixelMapManager->addMap({ "Intensity", nullptr, map1 });
+    m_pixelMapManager->addMap({ "HSV", nullptr, map2 });
+    m_pixelMapManager->addMap({ "FiveSegment", nullptr, map3 });
 }
 
 void
