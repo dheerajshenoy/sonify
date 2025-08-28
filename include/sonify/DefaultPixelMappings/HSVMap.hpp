@@ -6,8 +6,6 @@ class HSVMap : public MapTemplate
 {
 public:
 
-    const char *name() const override { return "HSV"; }
-
     std::vector<short>
     mapping(const std::vector<Pixel> &pixelCol) noexcept override
     {

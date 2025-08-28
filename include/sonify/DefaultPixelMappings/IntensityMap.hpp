@@ -7,8 +7,6 @@ class IntensityMap : public MapTemplate
 {
 public:
 
-    const char *name() const override { return "Intensity"; }
-
     std::vector<short>
     mapping(const std::vector<Pixel> &pixelCol) noexcept override
     {

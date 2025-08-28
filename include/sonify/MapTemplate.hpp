@@ -13,7 +13,6 @@ public:
     using FreqMapFunc = short (*)(double, double, double, double, double);
 
     virtual ~MapTemplate()                                         = default;
-    virtual const char *name() const                               = 0;
     virtual std::vector<short> mapping(const std::vector<Pixel> &) = 0;
 
     inline float minFreq() const noexcept { return _min_freq; }
