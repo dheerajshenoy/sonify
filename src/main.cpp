@@ -68,6 +68,17 @@ init_args(argparse::ArgumentParser &args)
 
     args.add_argument("--fps").scan<'i', int>().help("FPS of the GUI");
 
+    args.add_argument("--cursor-thickness")
+        .scan<'i', int>()
+        .default_value(1)
+        .help("Cursor thickness");
+
+    args.add_argument("--resize")
+        .nargs(2)
+        .scan<'i', int>()
+        .default_value<std::vector<int>>({ -1, -1 })
+        .help("Resize input image to the specified dimension");
+
     args.add_argument("--input", "-i").help("Input file");
 }
 
