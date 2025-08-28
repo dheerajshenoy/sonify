@@ -234,6 +234,14 @@ Sonify::handleKeyEvents() noexcept
     if (IsKeyPressed(KEY_SPACE)) toggleAudioPlayback();
     if (IsKeyPressed(KEY_ZERO)) recenterView();
     if (IsKeyPressed(KEY_J)) sonification();
+
+    if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT))
+    {
+        if (IsKeyPressed(KEY_PERIOD))
+            m_audioReadPos = (unsigned int)m_audioBuffer.size() - 1;
+        if (IsKeyPressed(KEY_COMMA)) m_audioReadPos = 0;
+    }
+
     if (IsKeyPressed(KEY_COMMA)) seekCursor(-1);
     if (IsKeyPressed(KEY_PERIOD)) seekCursor(1);
 }
