@@ -947,9 +947,7 @@ Sonify::saveAudio(const std::string &fileName) noexcept
                   .data       = (void *)m_audioBuffer.data() };
     const std::string &path = replaceHome(fileName);
     if (!ExportWave(wave, fileName.c_str()))
-    {
-        std::cerr << "Unable to export wave";
-    }
+        TraceLog(LOG_ERROR, "Unable to export wave");
 }
 
 std::string
