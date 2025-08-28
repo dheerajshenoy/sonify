@@ -117,6 +117,51 @@ Using a custom mapping:
 
 ``sonify -i image.png --pixelmap MyMap``
 
+# Configuration
+
+The configuration for Sonify is written in the [TOML](https://toml.io/en/) configuration language. You can define general audio/image parameters, UI settings, and command-line options for the application.
+
+## Options
+
+- `[general]`
+
+General settings for audio traversal, sampling, and image handling.
+
+| Key                 | Type            | Description                                                                                                             |
+|---------------------|-----------------|-------------------------------------------------------------------------------------------------------------------------|
+| traversal           | Integer         | Traversal mode (0 = default). Determines how data is walked through.                                                    |
+| min-freq            | Integer         | Minimum frequency (Hz) to consider when processing the FFT or spectrum.                                                 |
+| max-freq            | Integer         | Maximum frequency (Hz) to consider.                                                                                     |
+| sample-rate         | Float           | Audio sample rate (Hz). Typical value is 44100.0.                                                                       |
+| duration-per-sample | Float           | Duration (seconds) represented per sample.                                                                              |
+| loop                | Boolean         | Whether playback or traversal should loop (true or false).                                                              |
+| limit-dimension     | Array[Int, Int] | Maximum image dimensions [width, height]. If the image is larger, it will be scaled down while preserving aspect ratio. |
+| pixel-map           | String          | Pixel mapping method (e.g., "HSV"). Defines how pixel values are interpreted or visualized.                             |
+
+- `[ui]`
+
+User interface customization options.
+
+| Key              | Type    | Description                                                 |
+|------------------|---------|-------------------------------------------------------------|
+| font-family      | String  | Path to a .ttf font file to use for UI text.                |
+| font-size        | Integer | Font size in pixels.                                        |
+| background       | Integer | Background color as a hex integer (e.g., 0x000000 = black). |
+| spectrum-shown   | Boolean | Whether the audio spectrum visualization is displayed.      |
+| FPS              | Integer | Target frames per second for rendering.                     |
+| cursor-thickness | Integer | Thickness of the cursor line in pixels.                     |
+
+
+- `[cmdline]`
+
+Command-line related settings.
+
+| Key     | Type    | Description                                                                       |
+|---------|---------|-----------------------------------------------------------------------------------|
+| silence | Boolean | If true, disables audio playback (silent mode). Useful for testing without sound. |
+
+For example configuration, please check [EXAMPLE.toml](EXAMPLE.toml)
+
 # Pixel Mappings
 
 Pixel mappings define how pixel values (e.g., RGB, intensity) are converted into audio frequencies.

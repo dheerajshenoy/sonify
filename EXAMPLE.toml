@@ -1,0 +1,21 @@
+[general]
+
+traversal = 0
+min-freq = 0
+max-freq = 20000
+sample-rate = 44100.0
+duration-per-sample = 0.05
+loop = false
+limit-dimension = [ 500, 500 ]
+pixel-map = "HSV"
+
+[ui]
+font-family = "/usr/share/fonts/TTF/Comfortaa/static/Comfortaa-Bold.ttf"
+font-size = 50
+background = 0x000000
+spectrum-shown = true
+FPS = 60
+cursor-thickness = 1
+
+[cmdline]
+silence = false
