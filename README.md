@@ -16,7 +16,7 @@ Sonify is a GUI & command-line tool that converts images into sound. It lets you
 
 # Installation
 
-> [!WARN]
+> [!WARNING]
 > Sonify uses C++20 features and hence requires C++20 or greater compiler to compile
 
 Install `ninja` build system first
