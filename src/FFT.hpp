@@ -58,8 +58,8 @@ namespace sonify
         }
     }
 
-    static void DrawSpectrum(const vec_complex &fft, int screenW,
-                             int screenH) noexcept
+    static void DrawSpectrum(const vec_complex &fft, int screenW, int imageH,
+                             int spectrumH, int offsetY) noexcept
     {
         const int bins       = 64; // number of bars to draw
         const int N          = (int)fft.size();
@@ -84,6 +84,9 @@ namespace sonify
         }
         if (maxVal == 0.0) maxVal = 1.0; // avoid divide-by-zero
 
+        // baseline for spectrum is just below the image
+        int baseY = offsetY + imageH;
+
         for (size_t i = 0; i < bins; i++)
         {
             double sum = 0;
@@ -96,9 +99,9 @@ namespace sonify
 
             // normalize [0..1] against maxVal, then scale to screen height
             double norm   = magnitude / maxVal;
-            int barHeight = (int)(norm * screenH);
+            int barHeight = (int)(norm * spectrumH);
 
-            DrawRectangle((i * barWidth), screenH / 2 + screenH - barHeight,
+            DrawRectangle((i * barWidth), baseY + spectrumH - barHeight,
                           (int)(barWidth - 2), // spacing
                           barHeight, BLUE);
         }
