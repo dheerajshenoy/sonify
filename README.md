@@ -21,6 +21,8 @@ Sonify is a GUI & command-line tool that converts images into sound. It lets you
 
 Install `ninja` build system first
 
+And then run the following commands:
+
 ```bash
 git clone https://github.com/dheerajshenoy/Sonify
 cd Sonify
