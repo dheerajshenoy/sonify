@@ -165,17 +165,46 @@ namespace utils
     }
 
     // Applies fade in out to wave
-    void applyFadeInOut(std::vector<short> &wave, int fade) noexcept
+    void applyFadeInOut(std::vector<short> &wave, double fadeFrac) noexcept
     {
         const size_t N  = wave.size();
-        size_t fade_len = N / static_cast<size_t>(fade); // 10% fade
+        size_t fade_len = static_cast<size_t>(N * fadeFrac); // 10% fade
 
         for (size_t i = 0; i < fade_len; ++i)
         {
-            double factor = static_cast<double>(i) / fade_len;
-            wave[i] *= static_cast<short>(factor);
-            wave[N - 1 - i] *= static_cast<short>(factor);
+            double gain = static_cast<double>(i) / (double)fade_len;
+            wave[i] *= static_cast<short>(gain);
+            wave[N - 1 - i] *= static_cast<short>(gain);
         }
+    }
+
+    // Quantize arbitrary frequency to nearest note in 12-TET scale
+    double quantizeToNote(double freq) noexcept
+    {
+        if (freq <= 0.0) return 440.0;
+
+        double semitones = 12.0 * std::log2(freq / 440.0);
+        double rounded   = std::round(semitones);
+        return 440.0 * std::pow(2.0, rounded / 12.0);
+    }
+
+    // Stereo panning (0.0 = left, 1.0 = right)
+    // Expands mono to stereo interleaved L,R
+    std::vector<short> panStereo(const std::vector<short> &mono,
+                                 float pan) noexcept
+    {
+        std::vector<short> stereo;
+        stereo.reserve(mono.size() * 2);
+
+        float leftGain  = std::cos(pan * M_PI_2); // smooth panning law
+        float rightGain = std::sin(pan * M_PI_2);
+
+        for (auto v : mono)
+        {
+            stereo.push_back(static_cast<short>(v * leftGain));
+            stereo.push_back(static_cast<short>(v * rightGain));
+        }
+        return stereo;
     }
 
     // Normalizes the wave
@@ -195,7 +224,7 @@ namespace utils
 
     float intensity(const RGBA &rgba) noexcept
     {
-        return (rgba.r + rgba.g + rgba.b) / 3.0f;
+        return (float)(rgba.r + rgba.g + rgba.b) / 3.0f;
     }
 
     HSV RGBtoHSV(const RGBA &rgb) noexcept
