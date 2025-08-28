@@ -80,7 +80,7 @@ private:
     void recenterView() noexcept;
     void centerImage() noexcept;
     void seekCursor(float seconds) noexcept;
-    void saveAudio(const std::string &fileName) noexcept;
+    bool saveAudio(const std::string &fileName) noexcept;
     void loadUserPixelMappings() noexcept;
     void loadPixelMappingsSharedObjects(const std::string &dir) noexcept;
     void loadDefaultPixelMappings() noexcept;
@@ -146,6 +146,8 @@ private:
     bool m_isSonified{ false };
     bool m_showNotSonifiedMessage{ false };
     bool m_showDragDropText{ true };
+    bool m_exit_requested{ false };
+    bool m_isAudioSaved{ false };
 
     float m_showNotSonifiedMessageTimer{ 1.5f };
     unsigned int m_audioReadPos{ 0 };
@@ -160,10 +162,10 @@ private:
     Font m_font;
     Timer m_timer;
     unsigned int m_window_config_flags;
-    bool m_exit_requested{ false };
 
     // COMMAND LINE ARGUMENTS
     TraversalType m_traversal_type{ 0 };
+    std::array<int, 2> m_resize_array{ -1, -1 };
     float m_min_freq{ 0 };
     float m_max_freq{ 20000 };
     float m_sampleRate{ 44100.0f };
@@ -176,6 +178,7 @@ private:
     bool m_loop{ false };
     float m_duration_per_sample{ 0.05f };
     bool m_silence{ false }; // handles displaying INFO/WARNING messages
+    unsigned int m_cursor_thickness{ 1 };
 };
 
 static Sonify *gInstance{ nullptr };

@@ -149,6 +149,7 @@ Sonify::OpenImage(std::string fileName) noexcept
             const int x = m_screenW / 2 - m_texture->width() / 2;
             const int y = m_screenH / 2 - m_texture->height() / 2;
             m_texture->setPos({ x, y });
+            m_texture->resize(m_resize_array);
             m_image            = LoadImageFromTexture(m_texture->texture());
             m_showDragDropText = false;
             centerImage();
@@ -237,6 +238,7 @@ Sonify::handleKeyEvents() noexcept
 
     if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT))
     {
+        // Seek till end/beginning
         if (IsKeyPressed(KEY_PERIOD))
             m_audioReadPos = (unsigned int)m_audioBuffer.size() - 1;
         if (IsKeyPressed(KEY_COMMA)) m_audioReadPos = 0;
@@ -378,6 +380,12 @@ Sonify::sonification() noexcept
     if (m_cursorUpdater) m_cursorUpdater(0);
     UnloadImageColors(pixels);
     m_isSonified = true;
+
+    if (!m_saveFileName.empty() && !m_isAudioSaved)
+    {
+        saveAudio(m_saveFileName);
+        m_isAudioSaved = true;
+    }
 }
 
 void
@@ -668,7 +676,7 @@ Sonify::updateCursorUpdater() noexcept
             if (!m_li) m_li = new LineItem();
             m_li->setHeight(imgh);
             m_li->setPolarMode(false);
-            m_li->setWidth(10);
+            m_li->setWidth(m_cursor_thickness);
             m_cursorUpdater = [this, imgw, imgpos](int audioPos)
             {
                 float progress =
@@ -683,7 +691,7 @@ Sonify::updateCursorUpdater() noexcept
             if (!m_li) m_li = new LineItem();
             m_li->setHeight(imgh);
             m_li->setPolarMode(false);
-            m_li->setWidth(1);
+            m_li->setWidth(m_cursor_thickness);
             m_cursorUpdater = [this, imgpos, imgw](int audioPos)
             {
                 const float progress =
@@ -698,7 +706,7 @@ Sonify::updateCursorUpdater() noexcept
             if (!m_li) m_li = new LineItem();
             m_li->setPolarMode(false);
             m_li->setWidth(imgw);
-            m_li->setHeight(1);
+            m_li->setHeight(m_cursor_thickness);
             m_cursorUpdater = [this, imgpos, imgh](int audioPos)
             {
                 const float progress =
@@ -713,7 +721,7 @@ Sonify::updateCursorUpdater() noexcept
             if (!m_li) m_li = new LineItem();
             m_li->setPolarMode(false);
             m_li->setWidth(imgw);
-            m_li->setHeight(1);
+            m_li->setHeight(m_cursor_thickness);
             m_cursorUpdater = [this, imgh, imgpos](int audioPos)
             {
                 const float progress =
@@ -762,7 +770,7 @@ Sonify::updateCursorUpdater() noexcept
         {
             if (!m_li) m_li = new LineItem();
             m_li->setPolarMode(true);
-            m_li->setHeight(5);
+            m_li->setHeight(m_cursor_thickness);
             m_li->setWidth(imgw);
             m_li->setPos({ imgpos.x + imgw, imgpos.y + imgh / 2 });
             m_cursorUpdater = [this](int audioPos)
@@ -778,7 +786,7 @@ Sonify::updateCursorUpdater() noexcept
         {
             if (!m_li) m_li = new LineItem();
             m_li->setPolarMode(true);
-            m_li->setHeight(1);
+            m_li->setHeight(m_cursor_thickness);
             m_li->setWidth(imgw);
             m_li->setPos({ imgpos.x + imgw, imgpos.y + imgh / 2 });
             m_cursorUpdater = [this](int audioPos)
@@ -851,9 +859,18 @@ void
 Sonify::parse_args(const argparse::ArgumentParser &args) noexcept
 {
     if (args.is_used("--samplerate"))
-        setSamplerate(args.get<int>("--samplerate"));
+        setSamplerate(args.get<float>("--samplerate"));
 
     if (args.is_used("--loop")) m_loop = true;
+
+    if (args.is_used("--cursor-thickness"))
+        m_cursor_thickness = args.get<unsigned int>("--cursor-thickness");
+
+    if (args.is_used("--resize"))
+    {
+        auto vec       = args.get<std::vector<int>>("--resize");
+        m_resize_array = { vec[0], vec[1] };
+    }
 
     if (args.is_used("--dps")) m_duration_per_sample = args.get<float>("--dps");
 
@@ -882,6 +899,8 @@ Sonify::parse_args(const argparse::ArgumentParser &args) noexcept
 
     if (args.is_used("--fmin")) m_min_freq = args.get<float>("--fmin");
     if (args.is_used("--fmax")) m_max_freq = args.get<float>("--fmax");
+
+    if (args.is_used("--output")) { m_saveFileName = args.get("--output"); }
 
     if (args.is_used("--background"))
         m_bg = ColorFromHex(args.get<unsigned int>("--background"));
@@ -934,10 +953,11 @@ Sonify::seekCursor(float seconds) noexcept
     m_cursorUpdater(m_audioReadPos);
 }
 
-void
+bool
 Sonify::saveAudio(const std::string &fileName) noexcept
 {
-    if (!m_isSonified || m_audioBuffer.empty() || fileName.empty()) return;
+    if (!m_isSonified || m_audioBuffer.empty() || fileName.empty())
+        return false;
 
     Wave wave = { .frameCount = static_cast<unsigned int>(m_audioBuffer.size() /
                                                           m_channels),
@@ -947,7 +967,12 @@ Sonify::saveAudio(const std::string &fileName) noexcept
                   .data       = (void *)m_audioBuffer.data() };
     const std::string &path = replaceHome(fileName);
     if (!ExportWave(wave, fileName.c_str()))
+    {
         TraceLog(LOG_ERROR, "Unable to export wave");
+        return false;
+    }
+
+    return true;
 }
 
 std::string
