@@ -148,7 +148,7 @@ private:
     bool m_showDragDropText{ true };
 
     float m_showNotSonifiedMessageTimer{ 1.5f };
-    int m_audioReadPos{ 0 };
+    unsigned int m_audioReadPos{ 0 };
 
     Camera2D m_camera;
     int m_screenW, m_screenH;
@@ -167,7 +167,7 @@ private:
     float m_min_freq{ 0 };
     float m_max_freq{ 20000 };
     float m_sampleRate{ 44100.0f };
-    int m_channels{ 1 };
+    unsigned int m_channels{ 1 };
     int m_fps{ 60 };
     MapTemplate::FreqMapFunc m_freq_map_func{ utils::LinearMap };
     Color m_bg{ ColorFromHex(0x000000) };
