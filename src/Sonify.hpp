@@ -84,7 +84,8 @@ private:
     void seekCursor(float seconds) noexcept;
     bool saveAudio(const std::string &fileName) noexcept;
     void loadUserPixelMappings() noexcept;
-    void loadPixelMappingsSharedObjects(const std::string &dir) noexcept;
+    void loadPixelMappingsSharedObjectsFromDir(const std::string &dir) noexcept;
+    void loadPixelMappingsSharedObject(const std::string &path) noexcept;
     void loadDefaultPixelMappings() noexcept;
     [[nodiscard]] constexpr Color ColorFromHex(unsigned int hex) noexcept
     {
@@ -109,6 +110,7 @@ private:
     void handleFileDrop() noexcept;
     void readConfigFile() noexcept;
     bool renderVideo() noexcept;
+    void reloadCurrentPixelMappingSharedObject() noexcept;
 
 private:
 
@@ -135,6 +137,16 @@ private:
     AudioStream m_stream{ 0 };
     std::vector<short> m_audioBuffer;
     std::string m_saveFileName;
+
+    enum class SaveType
+    {
+        NONE = 0,
+        AUDIO_VIDEO,
+        AUDIO_ONLY,
+        VIDEO_ONLY
+    };
+
+    SaveType m_saveType{ SaveType::NONE };
 
     // used to store the file name to be opened through the command
     // line argument as the GUI loop is still not opened yet
@@ -163,6 +175,8 @@ private:
     PixelMapManager *m_pixelMapManager{ nullptr };
 
     std::string m_dragDropText{ "Drop an image file here to sonify" };
+    const std::string m_mappings_dir =
+        replaceHome("~/.config/sonify/mappings/");
     Color m_dragDropTextColor{ DARKGRAY };
     Font m_font;
     std::string m_font_family;
@@ -170,6 +184,7 @@ private:
     Timer m_timer;
     unsigned int m_window_config_flags;
     RenderTexture2D m_recordTarget{};
+    FILE *m_ffmpeg{ nullptr };
 
     // COMMAND LINE ARGUMENTS
     TraversalType m_traversal_type{ 0 };

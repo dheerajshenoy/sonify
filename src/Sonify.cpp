@@ -2,12 +2,14 @@
 
 #include "FFT.hpp"
 #include "PixelMapManager.hpp"
+#include "ffmpeg.hpp"
 #include "raylib.h"
 #include "sonify/DefaultPixelMappings/IntensityMap.hpp"
 #include "sonify/utils.hpp"
 #include "toml.hpp"
 
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <dlfcn.h>
 #include <filesystem>
@@ -217,6 +219,7 @@ Sonify::OpenImage(std::string fileName) noexcept
 void
 Sonify::render() noexcept
 {
+
     m_texture->render();
     if (m_li) m_li->render();
     if (m_ci) m_ci->render();
@@ -288,12 +291,16 @@ Sonify::handleKeyEvents() noexcept
     if (IsKeyPressed(KEY_ZERO)) recenterView();
     if (IsKeyPressed(KEY_J)) sonification();
     if (IsKeyPressed(KEY_R)) renderVideo();
+    if (IsKeyPressed(KEY_F1)) reloadCurrentPixelMappingSharedObject();
 
     if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT))
     {
         // Seek till end/beginning
         if (IsKeyPressed(KEY_PERIOD))
+        {
             m_audioReadPos = (unsigned int)m_audioBuffer.size() - 1;
+            if (!m_loop) m_audioPlaying = false;
+        }
         if (IsKeyPressed(KEY_COMMA)) m_audioReadPos = 0;
     }
 
@@ -342,11 +349,9 @@ Sonify::sonification() noexcept
     }
 
     AudioBuffer soundBuffer;
-    m_audioBuffer.clear();
 
     if (!m_headless) updateCursorUpdater();
 
-    auto maps      = m_pixelMapManager->mappingNames();
     MapTemplate *t = m_pixelMapManager->getMapTemplate(m_pixelMapName);
 
     if (!t)
@@ -427,10 +432,12 @@ Sonify::sonification() noexcept
             break;
     }
 
+    m_audioBuffer.clear();
+
     for (auto &col : soundBuffer)
         m_audioBuffer.insert(m_audioBuffer.end(), col.begin(), col.end());
 
-    if (m_cursorUpdater) m_cursorUpdater(0);
+    // if (m_cursorUpdater) m_cursorUpdater(0);
     UnloadImageColors(pixels);
     m_isSonified = true;
 
@@ -734,7 +741,7 @@ Sonify::updateCursorUpdater() noexcept
             {
                 float progress =
                     (float)audioPos / static_cast<float>(m_audioBuffer.size());
-                m_li->setPos({ progress * imgw + imgpos.x, imgpos.y });
+                m_li->setPos({ ceilf(progress * imgw + imgpos.x), imgpos.y });
             };
         }
         break;
@@ -953,7 +960,23 @@ Sonify::parse_args(const argparse::ArgumentParser &args) noexcept
     if (args.is_used("--fmin")) m_min_freq = args.get<float>("--fmin");
     if (args.is_used("--fmax")) m_max_freq = args.get<float>("--fmax");
 
-    if (args.is_used("--output")) { m_saveFileName = args.get("--output"); }
+    if (args.is_used("--output"))
+    {
+        m_saveFileName = args.get("--output");
+        m_saveType     = SaveType::AUDIO_VIDEO;
+    }
+
+    if (args.is_used("--output-audio"))
+    {
+        m_saveFileName = args.get("--output-audio");
+        m_saveType     = SaveType::AUDIO_ONLY;
+    }
+
+    if (args.is_used("--output-video"))
+    {
+        m_saveFileName = args.get("--output-video");
+        m_saveType     = SaveType::VIDEO_ONLY;
+    }
 
     if (args.is_used("--background"))
         m_bg = ColorFromHex(args.get<unsigned int>("--background"));
@@ -1018,12 +1041,16 @@ Sonify::saveAudio(const std::string &fileName) noexcept
                   .sampleSize = 16,
                   .channels   = m_channels,
                   .data       = (void *)m_audioBuffer.data() };
-    const std::string &path = replaceHome(fileName);
+
+    std::string path = replaceHome(fileName);
+
     if (!ExportWave(wave, fileName.c_str()))
     {
-        TraceLog(LOG_ERROR, "Unable to export wave");
+        TraceLog(LOG_ERROR, "Unable to export wave to %s", path.c_str());
         return false;
     }
+
+    m_isAudioSaved = true;
 
     return true;
 }
@@ -1051,22 +1078,20 @@ Sonify::loadUserPixelMappings() noexcept
         fs::create_directory(config_dir);
     else
     {
-        // load mappings
-        const std::string &mappings_dir = config_dir + "/mappings";
-        if (fs::exists(mappings_dir))
-            loadPixelMappingsSharedObjects(mappings_dir);
+        if (fs::exists(m_mappings_dir))
+            loadPixelMappingsSharedObjectsFromDir(m_mappings_dir);
     }
 }
 
 void
-Sonify::loadPixelMappingsSharedObjects(const std::string &dir) noexcept
+Sonify::loadPixelMappingsSharedObjectsFromDir(const std::string &dir) noexcept
 {
     namespace fs = std::filesystem;
     for (const auto &entry : fs::directory_iterator(dir))
     {
         if (entry.is_regular_file() && entry.path().extension() == ".so")
         {
-            void *handle           = dlopen(entry.path().c_str(), RTLD_LAZY);
+            void *handle = dlopen(entry.path().c_str(), RTLD_NOW | RTLD_LOCAL);
             const std::string name = entry.path().stem().string();
             if (handle)
             {
@@ -1205,11 +1230,11 @@ Sonify::readConfigFile() noexcept
         m_bg = ColorFromHex(ui["background"].value_or<unsigned int>(0x000000));
         m_cursor_thickness = ui["cursor-thickness"].value_or<unsigned int>(1);
         m_font_family      = ui["font-family"].value_or<std::string>("");
-        LOG("{}", m_font_family);
-        m_font_size = ui["font-size"].value_or<int>(60);
+        m_font_size        = ui["font-size"].value_or<int>(60);
     }
     if (cmdline) { m_silence = cmdline["silent"].value_or(false); }
 }
+
 bool
 Sonify::renderVideo() noexcept
 {
@@ -1239,4 +1264,43 @@ Sonify::renderVideo() noexcept
     m_isVideoRendering = true;
     toggleAudioPlayback();
     return true;
+}
+
+// Reloads the currenly loaded pixel map from the shared object
+void
+Sonify::reloadCurrentPixelMappingSharedObject() noexcept
+{
+    if (m_pixelMapName.empty()) return;
+
+    loadPixelMappingsSharedObject(m_mappings_dir + m_pixelMapName + ".so");
+    auto tempPos = m_audioReadPos;
+    sonification();
+    m_audioReadPos = tempPos;
+    m_cursorUpdater(m_audioReadPos);
+}
+
+// Load the given shared object from path
+void
+Sonify::loadPixelMappingsSharedObject(const std::string &filepath) noexcept
+{
+    std::filesystem::path sopath(filepath);
+    const std::string name = sopath.stem().string();
+
+    m_pixelMapManager->remove(name);
+
+    void *handle = dlopen(filepath.c_str(), RTLD_NOW | RTLD_LOCAL);
+
+    if (handle)
+    {
+        using CreateFn  = MapTemplate *(*)();
+        void *sym       = (dlsym(handle, "create"));
+        CreateFn create = reinterpret_cast<CreateFn>(sym);
+        if (!create)
+        {
+            TraceLog(LOG_WARNING, dlerror());
+            dlclose(handle);
+        }
+
+        m_pixelMapManager->addMap(PixelMap{ name, handle, create() });
+    }
 }
