@@ -6,12 +6,18 @@
 #include <string>
 #include <vector>
 
-typedef struct
+struct PixelMap
 {
     std::string name;
     void *handle;
     MapTemplate *map;
-} PixelMap;
+
+    bool operator==(const PixelMap &other) const noexcept
+    {
+        return (name == other.name) && (handle == other.handle) &&
+               (map == other.map);
+    }
+};
 
 namespace sonify
 {
@@ -25,12 +31,22 @@ public:
 
     ~PixelMapManager() noexcept;
 
-    std::vector<std::string> mappingNames() noexcept;
-    inline std::vector<PixelMap> &mappings() noexcept { return m_mappings; }
+    [[nodiscard]] std::vector<std::string> mappingNames() noexcept;
+    [[nodiscard]] inline std::vector<PixelMap> &mappings() noexcept
+    {
+        return m_mappings;
+    }
     inline void addMap(const PixelMap &p) noexcept { m_mappings.push_back(p); }
-    MapTemplate *getMapTemplate(const std::string &mapName) const noexcept;
+
+    [[nodiscard]] MapTemplate *
+    getMapTemplate(const std::string &mapName) const noexcept;
+
+    void remove(const PixelMap &p) noexcept;
+    void remove(const std::string &mapName) noexcept;
+    void remove(const char *mapName) noexcept;
 
 private:
 
+    void _removeFromVec(unsigned int id) noexcept;
     std::vector<PixelMap> m_mappings;
 };
