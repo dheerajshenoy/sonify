@@ -13,6 +13,18 @@ Sonify is a GUI & command-line tool that converts images into sound. It lets you
 
 # Installation
 
+Install `ninja` build system first
+
+```bash
+git clone https://github.com/dheerajshenoy/Sonify
+cd Sonify
+mkdir build && cd build
+cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr # if you want to use Ninja build instead of make
+ninja
+sudo ninja install
+```
+
+This will install Sonify program and also libsonify which is a library used to develop custom pixel mappings.
 
 # Usage
 
