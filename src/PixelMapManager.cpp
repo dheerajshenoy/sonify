@@ -92,11 +92,11 @@ PixelMapManager::_removeFromVec(unsigned int id) noexcept
 {
     if (id < m_mappings.size())
     {
-        auto t = m_mappings.at(id);
+        PixelMap &t = m_mappings[id];
 
         if (t.map)
         {
-            delete t.map;
+            t.destroy(t.map);
             t.map = nullptr;
         }
 
@@ -106,7 +106,7 @@ PixelMapManager::_removeFromVec(unsigned int id) noexcept
             t.handle = nullptr;
         }
 
-        m_mappings[id] = m_mappings.back(); // move last element here
+        t = m_mappings.back(); // move last element here
 
         m_mappings.pop_back(); // remove last element
     }

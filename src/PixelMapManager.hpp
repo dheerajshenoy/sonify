@@ -2,6 +2,7 @@
 
 #include "sonify/MapTemplate.hpp"
 
+#include <dlfcn.h>
 #include <functional>
 #include <string>
 #include <vector>
@@ -9,8 +10,10 @@
 struct PixelMap
 {
     std::string name;
-    void *handle;
-    MapTemplate *map;
+    void *handle{ nullptr };
+    MapTemplate *map{ nullptr };
+    using DestroyFn = void (*)(MapTemplate *);
+    DestroyFn destroy{ nullptr };
 
     bool operator==(const PixelMap &other) const noexcept
     {
