@@ -18,6 +18,7 @@
 
 #include <fftw3.h>
 #include <functional>
+#include <mutex>
 #include <print>
 #include <string>
 
@@ -185,6 +186,8 @@ private:
     unsigned int m_window_config_flags;
     RenderTexture2D m_recordTarget{};
     FILE *m_ffmpeg{ nullptr };
+
+    std::mutex m_reloadMutex;
 
     // COMMAND LINE ARGUMENTS
     TraversalType m_traversal_type{ 0 };

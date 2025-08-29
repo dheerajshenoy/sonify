@@ -8,6 +8,9 @@
 #include "sonify/utils.hpp"
 #include "toml.hpp"
 
+#define RAYGUI_IMPLEMENTATION
+#include "raygui.h"
+
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -29,7 +32,7 @@ Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
 #ifdef NDEBUG
     SetTraceLogLevel(LOG_NONE);
 #endif
-    SetTraceLogLevel(LOG_NONE);
+    // SetTraceLogLevel(LOG_NONE);
     InitWindow(0, 0, "Sonify");
 
     if (!m_headless)
@@ -87,9 +90,12 @@ Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
 
 Sonify::~Sonify() noexcept
 {
+    if (IsAudioStreamValid(m_stream))
+    {
+        StopAudioStream(m_stream);
+        UnloadAudioStream(m_stream);
+    }
     CloseAudioDevice();
-    StopAudioStream(m_stream);
-    UnloadAudioStream(m_stream);
     if (IsFontValid(m_font)) UnloadFont(m_font);
     if (IsRenderTextureValid(m_recordTarget))
         UnloadRenderTexture(m_recordTarget);
@@ -167,14 +173,21 @@ Sonify::GUIloop() noexcept
 
                     if (m_showNotSonifiedMessage)
                     {
-                        m_showNotSonifiedMessageTimer -= GetFrameTime();
-                        if (m_showNotSonifiedMessageTimer <= 0.0f)
-                        {
-                            m_showNotSonifiedMessage      = false;
-                            m_showNotSonifiedMessageTimer = 1.5f;
-                        }
+                        // m_showNotSonifiedMessageTimer -= GetFrameTime();
+                        // if (m_showNotSonifiedMessageTimer <= 0.0f)
+                        // {
+                        //     m_showNotSonifiedMessage      = false;
+                        //     m_showNotSonifiedMessageTimer = 1.5f;
+                        // }
 
-                        DrawText("Press `J` to sonify first", 10, 10, 20, RED);
+                        // DrawText("Press `J` to sonify first", 10, 10, 20,
+                        // RED);
+                        int result =
+                            GuiMessageBox({ m_screenW / 2 - 125,
+                                            m_screenH / 2 - 50, 250, 100 },
+                                          "#191#Info", "Sonify first", "Ok");
+                        if (result >= 0) m_showNotSonifiedMessage = false;
+                        // if (result >= 0)
                     }
                 }
                 EndDrawing();
@@ -356,7 +369,7 @@ Sonify::sonification() noexcept
 
     if (!t)
     {
-        TraceLog(LOG_FATAL, "Unable to find MapTemplate!");
+        TraceLog(LOG_ERROR, "Unable to find MapTemplate!");
         return;
     }
 
@@ -1090,24 +1103,7 @@ Sonify::loadPixelMappingsSharedObjectsFromDir(const std::string &dir) noexcept
     for (const auto &entry : fs::directory_iterator(dir))
     {
         if (entry.is_regular_file() && entry.path().extension() == ".so")
-        {
-            void *handle = dlopen(entry.path().c_str(), RTLD_NOW | RTLD_LOCAL);
-            const std::string name = entry.path().stem().string();
-            if (handle)
-            {
-                using CreateFn  = MapTemplate *(*)();
-                void *sym       = (dlsym(handle, "create"));
-                CreateFn create = reinterpret_cast<CreateFn>(sym);
-                if (!create)
-                {
-                    TraceLog(LOG_WARNING, dlerror());
-                    dlclose(handle);
-                    continue;
-                }
-
-                m_pixelMapManager->addMap(PixelMap{ name, handle, create() });
-            }
-        }
+            loadPixelMappingsSharedObject(entry.path());
     }
 }
 
@@ -1272,17 +1268,49 @@ Sonify::reloadCurrentPixelMappingSharedObject() noexcept
 {
     if (m_pixelMapName.empty()) return;
 
+    // simple guard to avoid concurrent reloads
+    std::lock_guard<std::mutex> reloadLock(m_reloadMutex);
+
+    // Save playback state
+    const bool wasPlaying = m_audioPlaying;
+    const size_t tempPos  = m_audioReadPos;
+
+    // Pause audio playback safely so audio callback won't be racing on buffers
+    if (wasPlaying)
+    {
+        PauseAudioStream(m_stream); // pause the stream
+        m_audioPlaying = false;
+    }
+
+    // Reload the shared object (this will call remove() -> destroy + dlclose ->
+    // then add new)
     loadPixelMappingsSharedObject(m_mappings_dir + m_pixelMapName + ".so");
-    auto tempPos = m_audioReadPos;
+
+    // Re-generate audio using the new mapping. sonification() will fetch the
+    // map via
+    // m_pixelMapManager->getMapTemplate(m_pixelMapName)
     sonification();
+
+    // Restore position and cursor
     m_audioReadPos = tempPos;
-    m_cursorUpdater(m_audioReadPos);
+    if (m_cursorUpdater) m_cursorUpdater(m_audioReadPos);
+
+    // Resume playback if it was playing before
+    if (wasPlaying)
+    {
+        // Reset stream read pointer and resume
+        // Note: we paused the stream; if you previously used StopAudioStream
+        // you may need to PlayAudioStream
+        PlayAudioStream(m_stream);
+        m_audioPlaying = true;
+    }
 }
 
 // Load the given shared object from path
 void
 Sonify::loadPixelMappingsSharedObject(const std::string &filepath) noexcept
 {
+
     std::filesystem::path sopath(filepath);
     const std::string name = sopath.stem().string();
 
@@ -1290,17 +1318,67 @@ Sonify::loadPixelMappingsSharedObject(const std::string &filepath) noexcept
 
     void *handle = dlopen(filepath.c_str(), RTLD_NOW | RTLD_LOCAL);
 
-    if (handle)
+    if (!handle)
     {
-        using CreateFn  = MapTemplate *(*)();
-        void *sym       = (dlsym(handle, "create"));
-        CreateFn create = reinterpret_cast<CreateFn>(sym);
-        if (!create)
-        {
-            TraceLog(LOG_WARNING, dlerror());
-            dlclose(handle);
-        }
-
-        m_pixelMapManager->addMap(PixelMap{ name, handle, create() });
+        TraceLog(LOG_WARNING, "dlopen failed for %s: %s", filepath.c_str(),
+                 dlerror());
+        return;
     }
+
+    auto create  = reinterpret_cast<CreateFn>(dlsym(handle, "create"));
+    auto destroy = reinterpret_cast<DestroyFn>(dlsym(handle, "destroy"));
+
+    if (!create || !destroy)
+    {
+        TraceLog(LOG_WARNING, "Plugin missing create/destroy: %s",
+                 filepath.c_str());
+        dlclose(handle);
+        return;
+    }
+
+    void *symCreate = (dlsym(handle, "create"));
+
+    if (!symCreate)
+    {
+        TraceLog(LOG_WARNING, "create symbol missing in %s: %s",
+                 filepath.c_str(), dlerror());
+        dlclose(handle);
+        return;
+    }
+
+    // get destroy
+    void *symDestroy = dlsym(handle, "destroy");
+    if (symDestroy) { destroy = reinterpret_cast<DestroyFn>(symDestroy); }
+    else
+    {
+        // No destroy symbol: you can set destroy = nullptr and fall back to
+        // delete in manager.
+        TraceLog(
+            LOG_WARNING,
+            "destroy symbol missing in %s - fallback delete may be unsafe.",
+            filepath.c_str());
+    }
+
+    // create the map (object exists while lib is loaded)
+    MapTemplate *map = nullptr;
+    try
+    {
+        map = create();
+    }
+    catch (...)
+    {
+        TraceLog(LOG_WARNING, "create() threw exception in %s",
+                 filepath.c_str());
+        if (handle) dlclose(handle);
+        return;
+    }
+
+    // Add to manager (name, handle, map, destroy)
+    PixelMap pm;
+    pm.name    = name;
+    pm.handle  = handle;
+    pm.map     = map;
+    pm.destroy = destroy;
+
+    m_pixelMapManager->addMap(pm);
 }
