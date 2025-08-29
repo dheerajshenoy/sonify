@@ -44,5 +44,6 @@ protected:
 // Factory function for plugins
 extern "C"
 {
-    MapTemplate *create();
+    using CreateFn  = MapTemplate *(*)();
+    using DestroyFn = void (*)(MapTemplate *);
 }
