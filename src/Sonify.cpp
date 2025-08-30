@@ -96,6 +96,12 @@ Sonify::~Sonify() noexcept
         UnloadAudioStream(m_stream);
     }
     CloseAudioDevice();
+    if (m_pixelMapManager) delete m_pixelMapManager;
+    if (m_texture) delete m_texture;
+    if (m_li) delete m_li;
+    if (m_ci) delete m_ci;
+    if (m_pi) delete m_pi;
+
     if (IsFontValid(m_font)) UnloadFont(m_font);
     if (IsRenderTextureValid(m_recordTarget))
         UnloadRenderTexture(m_recordTarget);
