@@ -2,10 +2,19 @@
 
 #include "Pixel.hpp"
 
+#include <cmath>
 #include <vector>
 
 namespace utils
 {
+    enum class WaveType
+    {
+        SINE = 0,
+        SQUARE,
+        SAWTOOTH,
+        TRIANGLE
+    };
+
     // ------- Math and mapping -------
     short LinearMap(double value, double in_min, double in_max, double out_min,
                     double out_max) noexcept;
@@ -17,11 +26,32 @@ namespace utils
                  double out_max) noexcept;
 
     // ------- Signal generation -------
-    void generateSineWave(std::vector<short> &buffer, double amplitude,
-                          double frequency, double time,
-                          int samplerate) noexcept;
-    std::vector<short> sineWave(double _amplitude, double frequency,
-                                double time, float samplerate) noexcept;
+
+    static inline double sineAt(double t, double freq)
+    {
+        return sin(2.0 * M_PI * freq * t);
+    }
+
+    static inline double squareAt(double t, double freq)
+    {
+        return (sineAt(t, freq) >= 0.0) ? 1.0 : -1.0;
+    }
+
+    static inline double sawtoothAt(double t, double freq)
+    {
+        double frac = fmod(freq * t, 1.0); // [0,1)
+        return 2.0 * frac - 1.0;           // [-1,1]
+    }
+
+    static inline double triangleAt(double t, double freq)
+    {
+        double frac = fmod(freq * t, 1.0);   // [0,1)
+        return 4.0 * fabs(frac - 0.5) - 1.0; // [-1,1]
+    }
+
+    std::vector<short> generateWave(WaveType type, double amplitude,
+                                    double frequency, double time,
+                                    int samplerate) noexcept;
 
     // ------- Signal Effects --------
     void applyEnvelope(std::vector<short> &samples) noexcept;

@@ -35,70 +35,6 @@ namespace utils
         return static_cast<short>(y_norm * (out_max - out_min) + out_min);
     }
 
-    // Generate sine wae
-    void generateSineWave(std::vector<short> &vector, double _amplitude,
-                          double frequency, double time,
-                          int samplerate) noexcept
-    {
-        const unsigned int N = static_cast<unsigned int>(samplerate * time);
-        if (N == 0) return;
-
-        vector.resize(N);
-
-        // clamp amplitude to avoid overflow
-        double amp         = std::clamp(_amplitude, -1.0, 1.0);
-        const double scale = amp * 32767.0;
-
-        const double theta =
-            2.0 * M_PI * frequency / static_cast<double>(samplerate);
-
-        // rotation complex number: e^{i θ}
-        const std::complex<double> w(std::cos(theta), std::sin(theta));
-        std::complex<double> z(0.0, 0.0);
-        // start at angle zero: sin(0)=0, but we want first sample as sin(0),
-        // so initialize z = (cos(0), sin(0)) = (1,0), then advance after using.
-        z = std::complex<double>(1.0, 0.0);
-
-        for (unsigned int i = 0; i < N; ++i)
-        {
-            vector[i] = static_cast<short>(scale * z.imag());
-            z *= w; // advance phase
-        }
-    }
-
-    // Generate sine wave
-    std::vector<short> sineWave(double _amplitude, double frequency,
-                                double time, float samplerate) noexcept
-    {
-        const unsigned int N = static_cast<unsigned int>(samplerate * time);
-        if (N == 0) return {};
-
-        std::vector<short> fs;
-        fs.resize(N);
-
-        // clamp amplitude to avoid overflow
-        double amp         = std::clamp(_amplitude, -1.0, 1.0);
-        const double scale = amp * 32767.0;
-
-        const double theta =
-            2.0 * M_PI * frequency / static_cast<double>(samplerate);
-        // rotation complex number: e^{i θ}
-        const std::complex<double> w(std::cos(theta), std::sin(theta));
-        std::complex<double> z(0.0, 0.0);
-        // start at angle zero: sin(0)=0, but we want first sample as sin(0),
-        // so initialize z = (cos(0), sin(0)) = (1,0), then advance after using.
-        z = std::complex<double>(1.0, 0.0);
-
-        for (unsigned int i = 0; i < N; ++i)
-        {
-            double sample = z.imag(); // sin(current angle)
-            fs[i]         = static_cast<short>(scale * sample);
-            z *= w; // advance phase
-        }
-
-        return fs;
-    }
-
     // Apply envelope effect
     void applyEnvelope(std::vector<short> &samples) noexcept
     {
@@ -254,6 +190,36 @@ namespace utils
         double v = cmax;
 
         return { h, s, v };
+    }
+
+    std::vector<short> generateWave(WaveType type, double amplitude,
+                                    double frequency, double time,
+                                    int samplerate) noexcept
+    {
+        size_t N = static_cast<size_t>(time * samplerate);
+        std::vector<short> buffer(N);
+
+        for (size_t n = 0; n < N; ++n)
+        {
+            double t     = static_cast<double>(n) / samplerate;
+            double value = 0.0;
+
+            switch (type)
+            {
+                case WaveType::SINE: value = sineAt(t, frequency); break;
+                case WaveType::SQUARE: value = squareAt(t, frequency); break;
+                case WaveType::SAWTOOTH:
+                    value = sawtoothAt(t, frequency);
+                    break;
+                case WaveType::TRIANGLE:
+                    value = triangleAt(t, frequency);
+                    break;
+            }
+
+            buffer[n] = static_cast<short>(amplitude * value * 32767);
+        }
+
+        return buffer;
     }
 
 } // namespace utils
