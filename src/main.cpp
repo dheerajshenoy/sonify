@@ -19,7 +19,7 @@ init_args(argparse::ArgumentParser &args)
     // args.add_argument("-c").scan<'i', int>().help("No. of channels to be
     // used");
 
-    args.add_argument("--output", "-o").help("Output WAV file name");
+    args.add_argument("--output").help("Output (audio + video) file name");
 
     args.add_argument("--traversal", "-t")
         .scan<'i', int>()

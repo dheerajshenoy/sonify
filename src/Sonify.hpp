@@ -111,14 +111,19 @@ private:
     void handleFileDrop() noexcept;
     void readConfigFile() noexcept;
     bool renderVideo() noexcept;
+    void renderStats() noexcept;
     void reloadCurrentPixelMappingSharedObject() noexcept;
+    void toggleLooping() noexcept;
+    void pauseAudioStream() noexcept;
+    void playAudioStream() noexcept;
+    void resetAudioStream() noexcept;
 
 private:
 
     using PixelMapFunc =
         std::function<std::vector<short>(const std::vector<Pixel> &)>;
     PixelMapFunc m_mapFunc;
-    using CursorUpdater = std::function<void(int pos)>;
+    using CursorUpdater = std::function<void(unsigned int pos)>;
     CursorUpdater m_cursorUpdater;
     enum class TraversalType
     {
@@ -133,21 +138,26 @@ private:
         PATH,
         REGION
     };
+
+    enum class PlaybackState
+    {
+        STOPPED = 0,
+        PLAYING,
+        FINISHED
+    };
+
+    enum class RecordingState
+    {
+        NONE = 0,
+        RECORDING,
+        FINISHED
+    };
+
     DTexture *m_texture{ new DTexture() };
     Image m_image;
     AudioStream m_stream{ 0 };
     std::vector<short> m_audioBuffer;
-    std::string m_saveFileName;
-
-    enum class SaveType
-    {
-        NONE = 0,
-        AUDIO_VIDEO,
-        AUDIO_ONLY,
-        VIDEO_ONLY
-    };
-
-    SaveType m_saveType{ SaveType::NONE };
+    std::string m_outputFileName;
 
     // used to store the file name to be opened through the command
     // line argument as the GUI loop is still not opened yet
@@ -158,18 +168,20 @@ private:
     CircleItem *m_ci{ nullptr };
     PathItem *m_pi{ nullptr };
 
-    bool m_finishedPlayback{ true };
-    bool m_audioPlaying{ false };
-    bool m_isSonified{ false };
-    bool m_showNotSonifiedMessage{ false };
-    bool m_showDragDropText{ true };
+    PlaybackState m_playbackState{ PlaybackState::STOPPED };
+    RecordingState m_recordingState{ RecordingState::NONE };
+
+    bool m_isSonified{ false };    // audio data ready
+    bool m_audioExported{ false }; // has user saved audio?
+    bool m_videoExported{ false }; // has user saved video?
+
+    bool m_showDragDropText{ true }; // UI only
     bool m_exit_requested{ false };
-    bool m_isAudioSaved{ false };
-    bool m_isVideoSaved{ false };
-    bool m_isVideoRendering{ false };
 
     float m_showNotSonifiedMessageTimer{ 1.5f };
     unsigned int m_audioReadPos{ 0 };
+
+    bool m_showNotSonifiedMessage{ false };
 
     Camera2D m_camera;
     int m_screenW, m_screenH;
@@ -205,6 +217,8 @@ private:
     float m_duration_per_sample{ 0.05f };
     bool m_silence{ false }; // handles displaying INFO/WARNING messages
     unsigned int m_cursor_thickness{ 1 };
+    float m_volume{ 0.5f };
+    bool m_renderStats{ true };
 };
 
 static Sonify *gInstance{ nullptr };

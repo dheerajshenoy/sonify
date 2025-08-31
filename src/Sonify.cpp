@@ -57,6 +57,7 @@ Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
 
     InitAudioDevice();
     setSamplerate(m_sampleRate);
+    SetMasterVolume(m_volume);
 
     m_pixelMapManager = new PixelMapManager();
     loadDefaultPixelMappings();
@@ -88,6 +89,121 @@ Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
     GUIloop();
 }
 
+void
+Sonify::GUIloop() noexcept
+{
+    while (!WindowShouldClose() && !m_exit_requested)
+    {
+        if (m_headless) continue;
+
+        // --- Update ---
+        m_timer.update();
+
+        if (m_cursorUpdater) m_cursorUpdater(m_audioReadPos);
+        // Track window resize
+        const int newW = GetScreenWidth();
+        const int newH = GetScreenHeight();
+        if (newW != m_screenW || newH != m_screenH)
+        {
+            m_screenW = newW;
+            m_screenH = newH;
+        }
+
+        // Only handle input if not recording
+        if (m_recordingState != RecordingState::RECORDING)
+        {
+            if (m_traversal_type == TraversalType::PATH) handleMouseEvents();
+
+            handleMouseScroll();
+            handleKeyEvents();
+
+            if (m_playbackState == PlaybackState::PLAYING && m_cursorUpdater)
+                m_cursorUpdater(m_audioReadPos);
+        }
+
+        // --- Render ---
+        BeginDrawing();
+        ClearBackground(m_bg);
+        // Info message when nothing sonified yet
+
+        switch (m_recordingState)
+        {
+            case RecordingState::RECORDING:
+            {
+                // Render to texture
+
+                BeginTextureMode(m_recordTarget);
+
+                BeginMode2D(m_camera);
+                {
+                    ClearBackground(m_bg);
+                    render();
+                }
+                EndMode2D();
+                EndTextureMode();
+
+                // Dump to ffmpeg
+                Image frame = LoadImageFromTexture(m_recordTarget.texture);
+                ImageFlipVertical(&frame);
+                std::fwrite(frame.data, 1,
+                            (size_t)frame.width * (size_t)frame.height *
+                                sizeof(uint32_t),
+                            m_ffmpeg);
+                UnloadImage(frame);
+
+                DrawText("Recording...", 10, 10, 30, RED);
+                break;
+            }
+
+            case RecordingState::FINISHED:
+            {
+                if (m_ffmpeg)
+                {
+                    fflush(m_ffmpeg);
+                    pclose(m_ffmpeg);
+                    m_ffmpeg = nullptr;
+                }
+                m_recordingState = RecordingState::NONE;
+
+                break;
+            }
+
+            case RecordingState::NONE:
+            default:
+            {
+                if (IsFileDropped()) handleFileDrop();
+
+                if (m_showDragDropText) showDragDropText();
+
+                BeginMode2D(m_camera);
+                render();
+                EndMode2D();
+
+                break;
+            }
+        }
+
+        if (m_renderStats) renderStats();
+
+        if (m_showNotSonifiedMessage)
+        {
+            int result = GuiMessageBox(
+                { m_screenW / 2 - 125, m_screenH / 2 - 50, 250, 100 },
+                "#191#Info", "Sonify first", "Ok");
+
+            if (result >= 0) { m_showNotSonifiedMessage = false; }
+        }
+
+        EndDrawing();
+
+        if (m_playbackState == PlaybackState::FINISHED)
+        {
+            resetAudioStream();
+            m_playbackState = PlaybackState::STOPPED;
+        }
+    }
+}
+
 Sonify::~Sonify() noexcept
 {
     if (IsAudioStreamValid(m_stream))
@@ -108,97 +224,37 @@ Sonify::~Sonify() noexcept
 }
 
 void
-Sonify::GUIloop() noexcept
+Sonify::audioCallback(void *buffer, unsigned int frames)
 {
-    while (!WindowShouldClose() && !m_exit_requested)
+    if (!gInstance) return;
+
+    int16_t *out = reinterpret_cast<int16_t *>(buffer);
+    auto &audio  = gInstance->m_audioBuffer;
+    auto &pos    = gInstance->m_audioReadPos;
+
+    for (unsigned int i = 0; i < frames; ++i)
     {
-        if (!m_headless)
+        if (pos >= audio.size())
         {
-            m_timer.update();
-            const int newW = GetScreenWidth();
-            const int newH = GetScreenHeight();
-            if (newW != m_screenW || newH != m_screenH)
+            out[i] = 0;
+
+            if (gInstance->m_loop)
             {
-                m_screenW = newW;
-                m_screenH = newH;
+                pos                        = 0;
+                gInstance->m_playbackState = PlaybackState::PLAYING;
             }
-            if (!m_isVideoRendering)
+            else
             {
-                if (m_traversal_type == TraversalType::PATH)
-                    handleMouseEvents();
-                handleMouseScroll();
-                handleKeyEvents();
-                if (m_audioPlaying && m_cursorUpdater)
-                    m_cursorUpdater(m_audioReadPos);
-            }
+                gInstance->m_playbackState = PlaybackState::FINISHED;
 
-            BeginDrawing();
-            {
-                ClearBackground(m_bg);
+                if (gInstance->m_headless) gInstance->m_exit_requested = true;
 
-                if (m_isVideoRendering)
-                {
-
-                    BeginTextureMode(m_recordTarget);
-                    {
-                        ClearBackground(m_bg);
-                        BeginMode2D(m_camera);
-                        render(); // full rendering path
-                        EndMode2D();
-                    }
-                    EndTextureMode();
-
-                    Image frame = LoadImageFromTexture(m_recordTarget.texture);
-                    ImageFlipVertical(&frame);
-                    std::fwrite(frame.data, 1,
-                                frame.width * frame.height * sizeof(uint32_t),
-                                m_ffmpeg);
-                    UnloadImage(frame);
-
-                    // --- On screen, only show text ---
-                    DrawText("Recording...", 10, 10, 30, RED);
-
-                    if (!m_audioPlaying)
-                    {
-                        fflush(m_ffmpeg);
-                        fclose(m_ffmpeg);
-                        m_cursorUpdater(m_audioReadPos);
-                        m_ffmpeg           = nullptr;
-                        m_isVideoRendering = false;
-                    }
-                }
-                else
-                {
-
-                    if (IsFileDropped()) handleFileDrop();
-                    if (m_showDragDropText) showDragDropText();
-
-                    BeginMode2D(m_camera);
-                    render();
-                    EndMode2D();
-
-                    if (m_showNotSonifiedMessage)
-                    {
-                        // m_showNotSonifiedMessageTimer -= GetFrameTime();
-                        // if (m_showNotSonifiedMessageTimer <= 0.0f)
-                        // {
-                        //     m_showNotSonifiedMessage      = false;
-                        //     m_showNotSonifiedMessageTimer = 1.5f;
-                        // }
-
-                        // DrawText("Press `J` to sonify first", 10, 10, 20,
-                        // RED);
-                        int result =
-                            GuiMessageBox({ m_screenW / 2 - 125,
-                                            m_screenH / 2 - 50, 250, 100 },
-                                          "#191#Info", "Sonify first", "Ok");
-                        if (result >= 0) m_showNotSonifiedMessage = false;
-                        // if (result >= 0)
-                    }
-                }
-                EndDrawing();
+                // recording stops automatically once audio finishes
+                if (gInstance->m_recordingState == RecordingState::RECORDING)
+                    gInstance->m_recordingState = RecordingState::FINISHED;
             }
         }
+        else { out[i] = audio[pos++]; }
     }
 }
 
@@ -238,45 +294,11 @@ Sonify::OpenImage(std::string fileName) noexcept
 void
 Sonify::render() noexcept
 {
-
     m_texture->render();
     if (m_li) m_li->render();
     if (m_ci) m_ci->render();
     if (m_pi) m_pi->render();
     if (m_display_fft_spectrum) renderFFT();
-}
-
-void
-Sonify::audioCallback(void *buffer, unsigned int frames)
-{
-    if (!gInstance) return;
-
-    int16_t *out = reinterpret_cast<int16_t *>(buffer);
-    auto &audio  = gInstance->m_audioBuffer; // single vector
-
-    for (unsigned int i = 0; i < frames; ++i)
-    {
-        if (gInstance->m_audioReadPos >= audio.size())
-        {
-            out[i] = 0;
-            if (gInstance->m_isVideoRendering)
-            {
-                gInstance->m_isVideoRendering = false;
-            }
-            if (gInstance->m_loop) { gInstance->m_audioReadPos = 0; }
-            else
-            {
-                if (gInstance->m_headless)
-                    gInstance->m_exit_requested = true;
-                else
-                {
-                    gInstance->m_finishedPlayback = true;
-                    gInstance->m_audioPlaying     = false;
-                }
-            }
-        }
-        else { out[i] = audio[(unsigned long)gInstance->m_audioReadPos++]; }
-    }
 }
 
 void
@@ -310,6 +332,7 @@ Sonify::handleKeyEvents() noexcept
     if (IsKeyPressed(KEY_ZERO)) recenterView();
     if (IsKeyPressed(KEY_J)) sonification();
     if (IsKeyPressed(KEY_R)) renderVideo();
+    if (IsKeyPressed(KEY_L)) toggleLooping();
     if (IsKeyPressed(KEY_F1)) reloadCurrentPixelMappingSharedObject();
 
     if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT))
@@ -318,7 +341,7 @@ Sonify::handleKeyEvents() noexcept
         if (IsKeyPressed(KEY_PERIOD))
         {
             m_audioReadPos = (unsigned int)m_audioBuffer.size() - 1;
-            if (!m_loop) m_audioPlaying = false;
+            if (!m_loop) m_playbackState = PlaybackState::FINISHED;
         }
         if (IsKeyPressed(KEY_COMMA)) m_audioReadPos = 0;
     }
@@ -328,29 +351,40 @@ Sonify::handleKeyEvents() noexcept
 }
 
 void
+Sonify::pauseAudioStream() noexcept
+{
+    PauseAudioStream(m_stream);
+    m_playbackState = PlaybackState::STOPPED;
+}
+
+void
+Sonify::playAudioStream() noexcept
+{
+    PlayAudioStream(m_stream);
+    m_playbackState = PlaybackState::PLAYING;
+}
+
+void
+Sonify::resetAudioStream() noexcept
+{
+    PauseAudioStream(m_stream);
+    m_playbackState = PlaybackState::STOPPED;
+    m_audioReadPos  = 0;
+}
+
+void
 Sonify::toggleAudioPlayback() noexcept
 {
-
-    if (m_audioPlaying)
-    {
-        PauseAudioStream(m_stream);
-        m_audioPlaying = false;
-    }
+    if (m_playbackState == PlaybackState::PLAYING)
+        pauseAudioStream();
     else
     {
-        if (!m_isSonified)
+        if (!m_isSonified && !m_headless)
         {
-            if (!m_headless)
-            {
-                m_showNotSonifiedMessage = true;
-                return;
-            }
+            m_showNotSonifiedMessage = true;
+            return;
         }
-
-        if (m_audioReadPos >= m_audioBuffer.size()) { m_audioReadPos = 0; }
-
-        PlayAudioStream(m_stream);
-        m_audioPlaying = true;
+        playAudioStream();
     }
 }
 
@@ -440,7 +474,8 @@ Sonify::sonification() noexcept
             for (const auto &p : pathPixels)
             {
                 std::vector<Pixel> pixelGroup(
-                    10, p); // Repeat pixel 10 times for more audio
+                    10,
+                    p); // Repeat pixel 10 times for more audio
                 soundBuffer.push_back(m_mapFunc(pixelGroup));
             }
         }
@@ -460,10 +495,10 @@ Sonify::sonification() noexcept
     UnloadImageColors(pixels);
     m_isSonified = true;
 
-    if (!m_saveFileName.empty() && !m_isAudioSaved)
+    if (!m_outputFileName.empty() && !m_audioExported)
     {
-        saveAudio(m_saveFileName);
-        m_isAudioSaved = true;
+        saveAudio(m_outputFileName);
+        m_audioExported = true;
     }
 }
 
@@ -471,7 +506,6 @@ void
 Sonify::collectLeftToRight(Color *pixels, int w, int h,
                            AudioBuffer &buffer) noexcept
 {
-
     std::vector<Pixel> pixelCol;
     pixelCol.reserve((size_t)h);
 
@@ -491,11 +525,10 @@ void
 Sonify::collectRightToLeft(Color *pixels, int w, int h,
                            AudioBuffer &buffer) noexcept
 {
-
     std::vector<Pixel> pixelCol;
     pixelCol.reserve(h);
 
-    for (int x = w; x > 0; x--)
+    for (int x = w - 1; x >= 0; x--)
     {
         pixelCol.clear();
         for (int y = 0; y < h; y++)
@@ -533,7 +566,7 @@ Sonify::collectBottomToTop(Color *pixels, int w, int h,
     std::vector<Pixel> pixelCol;
     pixelCol.reserve(h);
 
-    for (int y = h; y >= 0; y--)
+    for (int y = h - 1; y >= 0; y--)
     {
         pixelCol.clear();
         for (int x = 0; x < w; x++)
@@ -905,7 +938,6 @@ Sonify::updateCursorUpdater() noexcept
 void
 Sonify::handleMouseEvents() noexcept
 {
-
     if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
     {
         if (!m_pi) m_pi = new PathItem();
@@ -925,7 +957,8 @@ Sonify::handleMouseEvents() noexcept
             int px = (int)(mouseWorld.x - imgPos.x);
             int py = (int)(mouseWorld.y - imgPos.y);
 
-            // NOTE: GetImageColor expects uncompressed image in RAM
+            // NOTE: GetImageColor expects uncompressed image in
+            // RAM
             Color c = GetImageColor(m_image, px, py);
 
             m_pi->appendPixel({ RGBA{ c.r, c.g, c.b, c.a }, (int)mouseWorld.x,
@@ -979,23 +1012,7 @@ Sonify::parse_args(const argparse::ArgumentParser &args) noexcept
     if (args.is_used("--fmin")) m_min_freq = args.get<float>("--fmin");
     if (args.is_used("--fmax")) m_max_freq = args.get<float>("--fmax");
 
-    if (args.is_used("--output"))
-    {
-        m_saveFileName = args.get("--output");
-        m_saveType     = SaveType::AUDIO_VIDEO;
-    }
-
-    if (args.is_used("--output-audio"))
-    {
-        m_saveFileName = args.get("--output-audio");
-        m_saveType     = SaveType::AUDIO_ONLY;
-    }
-
-    if (args.is_used("--output-video"))
-    {
-        m_saveFileName = args.get("--output-video");
-        m_saveType     = SaveType::VIDEO_ONLY;
-    }
+    if (args.is_used("--output")) { m_outputFileName = args.get("--output"); }
 
     if (args.is_used("--background"))
         m_bg = ColorFromHex(args.get<unsigned int>("--background"));
@@ -1033,19 +1050,26 @@ Sonify::recenterView() noexcept
 void
 Sonify::seekCursor(float seconds) noexcept
 {
-    // samples per second (mono = sampleRate * 1, stereo = sampleRate * 2,
-    // etc.)
-    size_t samplesPerSecond = m_sampleRate * m_channels;
+    // samples per second (mono = sampleRate * 1, stereo =
+    // sampleRate * 2, etc.)
+
+    if (m_sampleRate == 0 || m_channels == 0 || m_audioBuffer.empty())
+        return; // avoid div by zero or nonsense seeks
+
+    const size_t samplesPerSecond =
+        static_cast<size_t>(m_sampleRate * m_channels);
 
     long long offset = static_cast<long long>(seconds * samplesPerSecond);
     long long newPos = static_cast<long long>(m_audioReadPos) + offset;
 
     if (newPos < 0) newPos = 0;
     if (newPos >= static_cast<long long>(m_audioBuffer.size()))
-        newPos = m_audioBuffer.size() - 1;
+        newPos = static_cast<long long>(m_audioBuffer.size());
 
-    m_audioReadPos = static_cast<size_t>(newPos);
-    m_cursorUpdater(m_audioReadPos);
+    m_audioReadPos = static_cast<unsigned int>(newPos);
+
+    // Notify cursor position
+    if (m_cursorUpdater) m_cursorUpdater(m_audioReadPos);
 }
 
 bool
@@ -1069,7 +1093,7 @@ Sonify::saveAudio(const std::string &fileName) noexcept
         return false;
     }
 
-    m_isAudioSaved = true;
+    m_audioExported = true;
 
     return true;
 }
@@ -1088,7 +1112,6 @@ Sonify::replaceHome(const std::string_view &str) noexcept
 void
 Sonify::loadUserPixelMappings() noexcept
 {
-
     namespace fs = std::filesystem;
     const std::string &config_dir =
         std::getenv("HOME") + std::string("/.config/sonify");
@@ -1116,7 +1139,6 @@ Sonify::loadPixelMappingsSharedObjectsFromDir(const std::string &dir) noexcept
 void
 Sonify::loadDefaultPixelMappings() noexcept
 {
-
     MapTemplate *map1 = new IntensityMap();
     MapTemplate *map2 = new HSVMap();
     MapTemplate *map3 = new FiveSegmentMap();
@@ -1142,7 +1164,6 @@ Sonify::showDragDropText() noexcept
 void
 Sonify::handleFileDrop() noexcept
 {
-
     FilePathList droppedFiles = LoadDroppedFiles();
     const char *filename      = droppedFiles.paths[0];
     if (filename)
@@ -1240,7 +1261,9 @@ Sonify::readConfigFile() noexcept
 bool
 Sonify::renderVideo() noexcept
 {
+
     if (!m_isSonified) sonification();
+
     // if (m_loop) m_loop = false;
     if (m_audioBuffer.empty())
     {
@@ -1251,20 +1274,25 @@ Sonify::renderVideo() noexcept
 
     const char *audioFileName = "/tmp/sonify__tmp.wav";
 
-    if (!m_isAudioSaved && !saveAudio(audioFileName))
+    if (!m_audioExported && !saveAudio(audioFileName))
     {
         TraceLog(LOG_ERROR, "Could not save audio!"
                             "Cannot render the video!");
         return false;
     }
 
+    if (m_outputFileName.empty()) m_outputFileName = "./output.mp4";
+
     m_ffmpeg = ffmpeg_audio_video(m_screenW, m_screenH, m_fps, audioFileName,
-                                  m_saveFileName.c_str());
+                                  m_outputFileName.c_str());
     if (!m_ffmpeg) return false;
-    // m_recordTarget = LoadRenderTexture(int width, int height)
-    m_recordTarget     = LoadRenderTexture(m_screenW, m_screenH);
-    m_isVideoRendering = true;
-    toggleAudioPlayback();
+    if (!IsTextureValid(m_recordTarget.texture))
+        m_recordTarget = LoadRenderTexture(m_screenW, m_screenH);
+    m_videoExported  = true;
+    m_recordingState = RecordingState::RECORDING;
+    recenterView();
+    playAudioStream();
+
     return true;
 }
 
@@ -1278,22 +1306,23 @@ Sonify::reloadCurrentPixelMappingSharedObject() noexcept
     std::lock_guard<std::mutex> reloadLock(m_reloadMutex);
 
     // Save playback state
-    const bool wasPlaying = m_audioPlaying;
-    const size_t tempPos  = m_audioReadPos;
+    const PlaybackState state = m_playbackState;
+    const size_t tempPos      = m_audioReadPos;
 
-    // Pause audio playback safely so audio callback won't be racing on buffers
-    if (wasPlaying)
+    // Pause audio playback safely so audio callback won't be
+    // racing on buffers
+    if (state == PlaybackState::PLAYING)
     {
         PauseAudioStream(m_stream); // pause the stream
-        m_audioPlaying = false;
+        m_playbackState = PlaybackState::STOPPED;
     }
 
-    // Reload the shared object (this will call remove() -> destroy + dlclose ->
-    // then add new)
+    // Reload the shared object (this will call remove() ->
+    // destroy + dlclose -> then add new)
     loadPixelMappingsSharedObject(m_mappings_dir + m_pixelMapName + ".so");
 
-    // Re-generate audio using the new mapping. sonification() will fetch the
-    // map via
+    // Re-generate audio using the new mapping. sonification()
+    // will fetch the map via
     // m_pixelMapManager->getMapTemplate(m_pixelMapName)
     sonification();
 
@@ -1302,13 +1331,13 @@ Sonify::reloadCurrentPixelMappingSharedObject() noexcept
     if (m_cursorUpdater) m_cursorUpdater(m_audioReadPos);
 
     // Resume playback if it was playing before
-    if (wasPlaying)
+    if (state == PlaybackState::STOPPED)
     {
         // Reset stream read pointer and resume
-        // Note: we paused the stream; if you previously used StopAudioStream
-        // you may need to PlayAudioStream
+        // Note: we paused the stream; if you previously used
+        // StopAudioStream you may need to PlayAudioStream
         PlayAudioStream(m_stream);
-        m_audioPlaying = true;
+        m_playbackState = PlaybackState::PLAYING;
     }
 }
 
@@ -1316,7 +1345,6 @@ Sonify::reloadCurrentPixelMappingSharedObject() noexcept
 void
 Sonify::loadPixelMappingsSharedObject(const std::string &filepath) noexcept
 {
-
     std::filesystem::path sopath(filepath);
     const std::string name = sopath.stem().string();
 
@@ -1357,12 +1385,12 @@ Sonify::loadPixelMappingsSharedObject(const std::string &filepath) noexcept
     if (symDestroy) { destroy = reinterpret_cast<DestroyFn>(symDestroy); }
     else
     {
-        // No destroy symbol: you can set destroy = nullptr and fall back to
-        // delete in manager.
-        TraceLog(
-            LOG_WARNING,
-            "destroy symbol missing in %s - fallback delete may be unsafe.",
-            filepath.c_str());
+        // No destroy symbol: you can set destroy = nullptr and
+        // fall back to delete in manager.
+        TraceLog(LOG_WARNING,
+                 "destroy symbol missing in %s - fallback "
+                 "delete may be unsafe.",
+                 filepath.c_str());
     }
 
     // create the map (object exists while lib is loaded)
@@ -1387,4 +1415,35 @@ Sonify::loadPixelMappingsSharedObject(const std::string &filepath) noexcept
     pm.destroy = destroy;
 
     m_pixelMapManager->addMap(pm);
+}
+
+void
+Sonify::toggleLooping() noexcept
+{
+    m_loop = !m_loop;
+}
+
+void
+Sonify::renderStats() noexcept
+{
+    const int padding  = 10;
+    const int lineGap  = 5;
+    const int fontSize = m_font_size;
+
+    int x = padding;
+    int y = padding;
+
+    static auto drawStat = [&](const char *label, const std::string &value)
+    {
+        std::string text = std::string(label) + ": " + value;
+        int textWidth    = MeasureText(text.c_str(), fontSize);
+
+        // draw left-aligned
+        DrawText(text.c_str(), x, y, fontSize, WHITE);
+
+        y += fontSize + lineGap; // move down for next line
+    };
+
+    drawStat("LOOP", std::to_string(m_loop));
+    drawStat("VOLUME", TextFormat("%.2f", m_volume));
 }
