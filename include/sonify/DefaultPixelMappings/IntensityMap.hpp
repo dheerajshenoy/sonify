@@ -11,8 +11,7 @@ public:
     mapping(const std::vector<Pixel> &pixelCol) noexcept override
     {
         const size_t N = pixelCol.size();
-        std::vector<short> fs(N);
-        double freq = 0;
+        double freq    = 0;
 
         if (N == 0) return {};
 
@@ -22,8 +21,8 @@ public:
             freq += freq_map(0, 1, _min_freq, _max_freq, hsv.v);
         }
 
-        utils::generateSineWave(fs, 0.25, freq, _duration_per_sample,
-                                _sample_rate);
+        auto fs = utils::generateWave(utils::WaveType::SINE, 0.25, freq,
+                                      _duration_per_sample, _sample_rate);
         utils::applyFadeInOut(fs);
         utils::normalizeWave(fs);
         return fs;

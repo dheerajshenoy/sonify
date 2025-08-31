@@ -38,15 +38,13 @@ set(SOURCES
   src/CircleItem.cpp
   src/PathItem.cpp
   src/PixelMapManager.cpp
-
-  include/sonify/DefaultPixelMappings/IntensityMap.hpp
-  include/sonify/DefaultPixelMappings/HSVMap.hpp
+  src/ffmpeg.cpp
 )
 
 set(HEADERS
-    src/Config.hpp
   src/Timer.hpp
   src/FFT.hpp
+  src/ffmpeg.hpp
 )
 
 add_executable(${PROJECT_NAME}_app ${SOURCES} ${HEADERS})

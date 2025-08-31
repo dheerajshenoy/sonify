@@ -9,10 +9,7 @@ public:
     std::vector<short>
     mapping(const std::vector<Pixel> &pixelCol) noexcept override
     {
-        std::vector<short> fs;
-        int N = static_cast<int>(pixelCol.size());
-        fs.resize(N);
-        std::vector<short> wave;
+        int N    = static_cast<int>(pixelCol.size());
         double f = 0;
 
         for (const auto &px : pixelCol)
@@ -22,8 +19,7 @@ public:
                  static_cast<double>(N);
         }
 
-        wave = utils::sineWave(0.5, f, _duration_per_sample, _sample_rate);
-        fs   = utils::addVectors(fs, wave);
-        return fs;
+        return utils::generateWave(utils::WaveType::SINE, 0.5, f,
+                                   _duration_per_sample, _sample_rate);
     }
 };
