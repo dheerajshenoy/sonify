@@ -199,7 +199,7 @@ Sonify::GUIloop() noexcept
 
         if (m_playbackState == PlaybackState::FINISHED)
         {
-            resetAudioStream();
+            // resetAudioStream();
             m_playbackState = PlaybackState::STOPPED;
         }
     }
@@ -247,7 +247,6 @@ Sonify::audioCallback(void *buffer, unsigned int frames)
             else
             {
                 gInstance->m_playbackState = PlaybackState::FINISHED;
-
                 if (gInstance->m_headless) gInstance->m_exit_requested = true;
 
                 // recording stops automatically once audio finishes
@@ -354,7 +353,9 @@ Sonify::pauseAudioStream() noexcept
 void
 Sonify::playAudioStream() noexcept
 {
+    if (m_audioReadPos >= m_audioBuffer.size()) m_audioReadPos = 0;
     PlayAudioStream(m_stream);
+
     m_playbackState = PlaybackState::PLAYING;
 }
 
