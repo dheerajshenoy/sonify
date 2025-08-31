@@ -117,6 +117,8 @@ private:
     void pauseAudioStream() noexcept;
     void playAudioStream() noexcept;
     void resetAudioStream() noexcept;
+    void increaseVolume() noexcept;
+    void decreaseVolume() noexcept;
 
 private:
 
@@ -153,7 +155,7 @@ private:
         FINISHED
     };
 
-    DTexture *m_texture{ new DTexture() };
+    DTexture *m_texture{ nullptr };
     Image m_image;
     AudioStream m_stream{ 0 };
     std::vector<short> m_audioBuffer;
@@ -193,7 +195,7 @@ private:
     Color m_dragDropTextColor{ DARKGRAY };
     Font m_font;
     std::string m_font_family;
-    int m_font_size{ 60 };
+    float m_font_size{ 30 };
     Timer m_timer;
     unsigned int m_window_config_flags;
     RenderTexture2D m_recordTarget{};
@@ -217,8 +219,7 @@ private:
     float m_duration_per_sample{ 0.05f };
     bool m_silence{ false }; // handles displaying INFO/WARNING messages
     unsigned int m_cursor_thickness{ 1 };
-    float m_volume{ 0.5f };
-    bool m_renderStats{ true };
+    bool m_renderStats{ false };
 };
 
 static Sonify *gInstance{ nullptr };

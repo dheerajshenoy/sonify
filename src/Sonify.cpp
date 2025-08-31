@@ -1,5 +1,6 @@
 #include "Sonify.hpp"
 
+#include "DTexture.hpp"
 #include "FFT.hpp"
 #include "PixelMapManager.hpp"
 #include "ffmpeg.hpp"
@@ -57,7 +58,7 @@ Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
 
     InitAudioDevice();
     setSamplerate(m_sampleRate);
-    SetMasterVolume(m_volume);
+    SetMasterVolume(0.5f);
 
     m_pixelMapManager = new PixelMapManager();
     loadDefaultPixelMappings();
@@ -86,6 +87,7 @@ Sonify::Sonify(const argparse::ArgumentParser &args) noexcept
             exit(0);
         }
     }
+
     GUIloop();
 }
 
@@ -96,7 +98,6 @@ Sonify::GUIloop() noexcept
     {
         if (m_headless) continue;
 
-        // --- Update ---
         m_timer.update();
 
         if (m_cursorUpdater) m_cursorUpdater(m_audioReadPos);
@@ -261,40 +262,30 @@ Sonify::audioCallback(void *buffer, unsigned int frames)
 bool
 Sonify::OpenImage(std::string fileName) noexcept
 {
+    m_texture = new DTexture();
     if (IsImageValid(m_image)) UnloadImage(m_image);
     if (IsTextureValid(m_texture->texture()))
         UnloadTexture(m_texture->texture());
     if (!fileName.empty()) fileName = replaceHome(fileName);
 
     bool status = m_texture->load(fileName.c_str());
-    if (!m_headless)
+    if (!m_headless && status)
     {
-        if (status)
-        {
-            const int x = m_screenW / 2 - m_texture->width() / 2;
-            const int y = m_screenH / 2 - m_texture->height() / 2;
-            m_texture->setPos({ x, y });
-            m_texture->resize(m_resize_array, true);
-            m_image            = LoadImageFromTexture(m_texture->texture());
-            m_showDragDropText = false;
-            centerImage();
-            recenterView();
-            return true;
-        }
+        m_texture->resize(m_resize_array, true);
+        m_image            = LoadImageFromTexture(m_texture->texture());
+        m_showDragDropText = false;
+        centerImage();
+        recenterView();
     }
-    else
-    {
-        m_image = LoadImageFromTexture(m_texture->texture());
-        return true;
-    }
+    else { m_image = LoadImageFromTexture(m_texture->texture()); }
 
-    return false;
+    return status;
 }
 
 void
 Sonify::render() noexcept
 {
-    m_texture->render();
+    if (m_texture) m_texture->render();
     if (m_li) m_li->render();
     if (m_ci) m_ci->render();
     if (m_pi) m_pi->render();
@@ -331,6 +322,9 @@ Sonify::handleKeyEvents() noexcept
     if (IsKeyPressed(KEY_SPACE)) toggleAudioPlayback();
     if (IsKeyPressed(KEY_ZERO)) recenterView();
     if (IsKeyPressed(KEY_J)) sonification();
+    if (IsKeyPressed(KEY_EQUAL)) increaseVolume();
+    if (IsKeyPressed(KEY_MINUS)) decreaseVolume();
+    if (IsKeyPressed(KEY_H)) m_renderStats = !m_renderStats;
     if (IsKeyPressed(KEY_R)) renderVideo();
     if (IsKeyPressed(KEY_L)) toggleLooping();
     if (IsKeyPressed(KEY_F1)) reloadCurrentPixelMappingSharedObject();
@@ -391,9 +385,11 @@ Sonify::toggleAudioPlayback() noexcept
 void
 Sonify::sonification() noexcept
 {
+    if (!IsImageValid(m_image)) return;
+
     Color *pixels = LoadImageColors(m_image);
-    int h         = m_image.height;
-    int w         = m_image.width;
+    const int h   = m_image.height;
+    const int w   = m_image.width;
 
     if (!pixels)
     {
@@ -1040,11 +1036,18 @@ void
 Sonify::recenterView() noexcept
 {
     m_camera.rotation = 0.0f;
-    // m_camera.target   = { 0.0f, 0.0f };
-    m_camera.offset = { m_screenW / 2 - m_image.width / 2,
-                        m_screenH / 2 - m_image.height / 2 };
-    m_camera.target = { 0, 0 };
-    m_camera.zoom   = 1.0f;
+
+    // Put target at image center (world space)
+    m_camera.target = { m_image.width / 2.0f, m_image.height / 2.0f };
+
+    // Center the camera in the screen (screen space)
+    m_camera.offset = { m_screenW / 2.0f, m_screenH / 2.0f };
+
+    // Compute zoom so image fits with margin
+    float margin  = 0.9f; // 90% of screen, adjust as needed
+    float scaleX  = (float)m_screenW / m_image.width;
+    float scaleY  = (float)m_screenH / (m_image.height);
+    m_camera.zoom = std::min(scaleX, scaleY) * margin;
 }
 
 void
@@ -1426,24 +1429,41 @@ Sonify::toggleLooping() noexcept
 void
 Sonify::renderStats() noexcept
 {
-    const int padding  = 10;
-    const int lineGap  = 5;
-    const int fontSize = m_font_size;
+    const int padding = 10;
+    const int lineGap = 5;
 
     int x = padding;
     int y = padding;
 
     static auto drawStat = [&](const char *label, const std::string &value)
     {
-        std::string text = std::string(label) + ": " + value;
-        int textWidth    = MeasureText(text.c_str(), fontSize);
+        std::string text = std::string(label) + value;
+        // int textWidth    = MeasureText(text.c_str(), m_font_size);
 
         // draw left-aligned
-        DrawText(text.c_str(), x, y, fontSize, WHITE);
+        DrawTextEx(m_font, text.c_str(), { x, y }, m_font_size, 0.0f, WHITE);
 
-        y += fontSize + lineGap; // move down for next line
+        y += m_font_size + lineGap; // move down for next line
     };
 
-    drawStat("LOOP", std::to_string(m_loop));
-    drawStat("VOLUME", TextFormat("%.2f", m_volume));
+    drawStat("LOOP: ", std::to_string(m_loop));
+    drawStat("VOL: ", TextFormat("%.2f", GetMasterVolume()));
+    if (m_texture)
+    {
+        drawStat("DIM: ",
+                 TextFormat("%d, %d", m_texture->width(), m_texture->height()));
+    }
+    else { drawStat("No Image Loaded", ""); }
+}
+
+void
+Sonify::increaseVolume() noexcept
+{
+    SetMasterVolume(std::min(GetMasterVolume() + 0.1f, 1.0f));
+}
+
+void
+Sonify::decreaseVolume() noexcept
+{
+    SetMasterVolume(std::max(GetMasterVolume() - 0.1f, 0.0f));
 }
